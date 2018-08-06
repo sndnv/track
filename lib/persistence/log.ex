@@ -9,7 +9,7 @@ defmodule Persistence.Log do
     GenServer.start_link(
       __MODULE__,
       [
-        log_file_path: options[:log_file_path]
+        log_file_path: options[:store_options][:log_file_path]
       ],
       options
     )
@@ -68,7 +68,7 @@ defmodule Persistence.Log do
         temp_file = File.stream!(temp_file_name, [:append, :utf8])
 
         log_file
-        |> Stream.filter(fn line -> not String.contains?(line, id) end)
+        |> Stream.reject(fn line -> String.contains?(line, id) end)
         |> Stream.into(temp_file)
         |> Stream.run()
 

@@ -1,5 +1,17 @@
-defmodule Cli.Parsing do
+defmodule Cli.Parse do
   @moduledoc false
+
+  @application_options [verbose: :boolean, config: :string]
+
+  @spec extract_application_options([String.to()]) :: {[{atom, term}], [String.t()]}
+  def extract_application_options(args) do
+    {options, _, _} = OptionParser.parse(args, strict: @application_options)
+
+    parsed_args = Enum.flat_map(options, fn {k, v} -> ["--#{Atom.to_string(k)}", v] end)
+    remaining_args = Enum.reject(args, fn arg -> Enum.member?(parsed_args, arg) end)
+
+    {options, remaining_args}
+  end
 
   @expected_args [
     task: :string,

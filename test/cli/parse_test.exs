@@ -1,8 +1,9 @@
-defmodule Cli.ParsingTest do
+defmodule Cli.ParseTest do
   @moduledoc false
+
   use ExUnit.Case
 
-  alias Cli.Parsing, as: Parser
+  alias Cli.Parse, as: Parser
 
   test "parses duration parameters" do
     assert Parser.parse_duration("30m") == {:ok, 30}
@@ -426,5 +427,101 @@ defmodule Cli.ParsingTest do
     assert expected_task.duration == actual_task.duration
 
     assert Parser.args_to_task([]) == {:error, "No arguments specified"}
+  end
+
+  test "parse arguments into application options" do
+    args = ["--verbose"]
+    assert Parser.extract_application_options(args) == {[verbose: true], []}
+
+    args = ["--verbose", "--config", "some-file.conf"]
+
+    assert Parser.extract_application_options(args) ==
+             {[verbose: true, config: "some-file.conf"], []}
+
+    args = ["--config", "some-file.conf"]
+    assert Parser.extract_application_options(args) == {[config: "some-file.conf"], []}
+
+    args = ["some-file.conf"]
+    assert Parser.extract_application_options(args) == {[], ["some-file.conf"]}
+
+    args = ["param-1", "--config", "some-file.conf", "param-2"]
+
+    assert Parser.extract_application_options(args) ==
+             {[config: "some-file.conf"], ["param-1", "param-2"]}
+
+    args = ["param-1", "--verbose", "--config", "some-file.conf"]
+
+    assert Parser.extract_application_options(args) ==
+             {[verbose: true, config: "some-file.conf"], ["param-1"]}
+
+    args = ["param-1", "--verbose", "param-2", "param-3", "--config", "some-file.conf"]
+
+    assert Parser.extract_application_options(args) ==
+             {[verbose: true, config: "some-file.conf"], ["param-1", "param-2", "param-3"]}
+
+    args = ["param-1", "--verbose", "param-2", "param-3", "--config", "some-file.conf", "param-4"]
+
+    assert Parser.extract_application_options(args) ==
+             {[verbose: true, config: "some-file.conf"],
+              ["param-1", "param-2", "param-3", "param-4"]}
+
+    args = [
+      "--param-1",
+      "--verbose",
+      "param-2",
+      "param-3",
+      "--config",
+      "some-file.conf",
+      "param-4"
+    ]
+
+    assert Parser.extract_application_options(args) ==
+             {[verbose: true, config: "some-file.conf"],
+              ["--param-1", "param-2", "param-3", "param-4"]}
+
+    args = [
+      "param-1",
+      "--verbose",
+      "--param-2",
+      "value-2",
+      "--config",
+      "some-file.conf",
+      "param-4"
+    ]
+
+    assert Parser.extract_application_options(args) ==
+             {[verbose: true, config: "some-file.conf"],
+              ["param-1", "--param-2", "value-2", "param-4"]}
+
+    args = [
+      "param-1",
+      "--verbose",
+      "--param-2",
+      "value-2",
+      "--config",
+      "some-file.conf",
+      "--param-4"
+    ]
+
+    assert Parser.extract_application_options(args) ==
+             {[verbose: true, config: "some-file.conf"],
+              ["param-1", "--param-2", "value-2", "--param-4"]}
+
+    args = [
+      "--param-1",
+      "--verbose",
+      "--param-2",
+      "value-2",
+      "--config",
+      "some-file.conf",
+      "--param-4"
+    ]
+
+    assert Parser.extract_application_options(args) ==
+             {[verbose: true, config: "some-file.conf"],
+              ["--param-1", "--param-2", "value-2", "--param-4"]}
+
+    args = []
+    assert Parser.extract_application_options(args) == {[], []}
   end
 end

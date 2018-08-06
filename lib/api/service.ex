@@ -4,38 +4,72 @@ defmodule Api.Service do
   use Supervisor
   require Logger
 
-  # TODO - get from config
-  @store Persistence.Log
-  @log_file_path "run/tasks.log"
-
   def start_link(options) do
     Supervisor.start_link(__MODULE__, options, options)
   end
 
   def init(options) do
+    store = options[:api_options][:store]
+    store_options = options[:api_options][:store_options]
+
     children = [
-      {@store, name: Store, log_file_path: @log_file_path}
+      {Api.Config, name: Config, api_options: options[:api_options]},
+      {
+        store,
+        name: Store, store_options: store_options
+      }
     ]
 
     Supervisor.init(children, strategy: :one_for_one)
   end
 
   def add_task(task) do
-    Persistence.Store.add(@store, Store, task)
+    case Api.Config.get(Config, :store) do
+      {:ok, store} ->
+        Persistence.Store.add(store, Store, task)
+
+      :error ->
+        message = "No store is configured"
+        {:error, message}
+    end
   end
 
   def remove_task(id) do
-    Persistence.Store.remove(@store, Store, id)
+    case Api.Config.get(Config, :store) do
+      {:ok, store} ->
+        Persistence.Store.remove(store, Store, id)
+
+      :error ->
+        message = "No store is configured"
+        {:error, message}
+    end
   end
 
   def list_tasks() do
-    Persistence.Store.list(@store, Store)
+    case Api.Config.get(Config, :store) do
+      {:ok, store} ->
+        Persistence.Store.list(store, Store)
+
+      :error ->
+        message = "No store is configured"
+        {:error, message}
+    end
   end
 
   def process_command(service, parameters) do
     case service do
-      "store" -> Persistence.Store.process_command(@store, Store, parameters)
-      _ -> {:error, "Service [#{service}] not found"}
+      "store" ->
+        case Api.Config.get(Config, :store) do
+          {:ok, store} ->
+            Persistence.Store.process_command(store, Store, parameters)
+
+          :error ->
+            message = "No store is configured"
+            {:error, message}
+        end
+
+      _ ->
+        {:error, "Service [#{service}] not found"}
     end
   end
 end
