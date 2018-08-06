@@ -1,39 +1,41 @@
 defmodule Api.Service do
   @moduledoc false
 
-  use GenServer
+  use Supervisor
   require Logger
 
+  # TODO - get from config
+  @store Persistence.Log
+  @log_file_path "run/tasks.log"
+
   def start_link(options) do
-    GenServer.start_link(__MODULE__, :ok, options)
+    Supervisor.start_link(__MODULE__, options, options)
   end
 
-  def init(:ok) do
-    {:ok, %{}}
+  def init(options) do
+    children = [
+      {@store, name: Store, log_file_path: @log_file_path}
+    ]
+
+    Supervisor.init(children, strategy: :one_for_one)
   end
 
-  def add(service, task) do
-    GenServer.call(service, {:add, task})
+  def add_task(task) do
+    Persistence.Store.add(@store, Store, task)
   end
 
-  def update(service, task) do
-    GenServer.call(service, {:update, task})
+  def remove_task(id) do
+    Persistence.Store.remove(@store, Store, id)
   end
 
-  def delete(service, task) do
-    GenServer.call(service, {:delete, task})
+  def list_tasks() do
+    Persistence.Store.list(@store, Store)
   end
 
-  def list(service) do
-    GenServer.call(service, {:list})
-  end
-
-  def handle_call(request, _from, store) do
-    case request do
-      {:add, task} -> {:reply, :todo, store} # TODO
-      {:update, task} -> {:reply, :todo, store} # TODO
-      {:delete, task} -> {:reply, :todo, store} # TODO
-      {:list} -> {:reply, :todo, store} # TODO
+  def process_command(service, parameters) do
+    case service do
+      "store" -> Persistence.Store.process_command(@store, Store, parameters)
+      _ -> {:error, "Service [#{service}] not found"}
     end
   end
 end
