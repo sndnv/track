@@ -45,10 +45,17 @@ defmodule Api.Service do
     end
   end
 
-  def list_tasks() do
+  def list_tasks(query) do
     case Api.Config.get(Config, :store) do
       {:ok, store} ->
-        Persistence.Store.list(store, Store)
+        with {:ok, stream} <- Persistence.Store.list(store, Store),
+             {:ok, table} <-
+               stream
+               |> flatten()
+               |> with_query_filter(query)
+               |> Aggregate.Tasks.list_to_table(query) do
+          {:ok, table}
+        end
 
       :error ->
         message = "No store is configured"
@@ -71,5 +78,30 @@ defmodule Api.Service do
       _ ->
         {:error, "Service [#{service}] not found"}
     end
+  end
+
+  def flatten(stream) do
+    stream
+    |> Stream.flat_map(fn element ->
+      case element do
+        {:ok, entry} ->
+          [entry]
+
+        {:error, message} ->
+          Logger.error(message)
+          []
+      end
+    end)
+  end
+
+  def with_query_filter(stream, query) do
+    from_unix = DateTime.to_unix(query.from)
+    to_unix = DateTime.to_unix(query.to)
+
+    stream
+    |> Stream.filter(fn entry ->
+      start_unix = DateTime.to_unix(entry.start)
+      from_unix <= start_unix && start_unix <= to_unix
+    end)
   end
 end

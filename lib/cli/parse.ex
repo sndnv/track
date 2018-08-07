@@ -13,7 +13,48 @@ defmodule Cli.Parse do
     {options, remaining_args}
   end
 
-  @expected_args [
+  @expected_query_args [
+    from: :string,
+    to: :string,
+    sort_by: :string
+  ]
+
+  @spec args_to_query([String.t()]) :: Api.Query.t()
+  def args_to_query(args) do
+    parsed =
+      case args do
+        [head | _] ->
+          parsed =
+            cond do
+              String.starts_with?(head, "--") -> parse_as_options(@expected_query_args, args)
+              String.contains?(head, "=") -> parse_as_kv(@expected_query_args, args)
+              true -> parse_as_positional(@expected_query_args, args)
+            end
+
+          Enum.map(parsed, fn {k, v} -> {k, String.downcase(v)} end)
+
+        [] ->
+          # uses defaults
+          []
+      end
+
+    with {:ok, from_date} <- parse_date(Keyword.get(parsed, :from, "today")),
+         {:ok, to_date} <- parse_date(Keyword.get(parsed, :to, "today")),
+         {:ok, from, 0} <- DateTime.from_iso8601("#{from_date}T00:00:00Z"),
+         {:ok, to, 0} <- DateTime.from_iso8601("#{to_date}T23:59:59Z"),
+         sort_by <- Keyword.get(parsed, :sort_by, "start") do
+      {
+        :ok,
+        %Api.Query{
+          from: from,
+          to: to,
+          sort_by: sort_by
+        }
+      }
+    end
+  end
+
+  @expected_task_args [
     task: :string,
     start_date: :string,
     start_time: :string,
@@ -27,9 +68,22 @@ defmodule Cli.Parse do
       [head | _] ->
         parsed =
           cond do
-            String.starts_with?(head, "--") -> parse_as_options(args)
-            String.contains?(head, "=") -> parse_as_kv(args)
-            true -> parse_as_positional(args)
+            String.starts_with?(head, "--") ->
+              parse_as_options(@expected_task_args, args)
+
+            String.contains?(head, "=") ->
+              parse_as_kv(@expected_task_args, args)
+
+            true ->
+              parsed = parse_as_positional(@expected_task_args, args)
+
+              case parse_duration(Keyword.get(parsed, :end_time, "")) do
+                {:ok, _} ->
+                  parsed |> Keyword.delete(:end_time) |> Keyword.put(:duration, parsed[:end_time])
+
+                {:error, _} ->
+                  parsed
+              end
           end
 
         parsed =
@@ -97,31 +151,26 @@ defmodule Cli.Parse do
     end
   end
 
-  @spec parse_as_options([String.t()]) :: [{atom, String.t()}]
-  def parse_as_options(args) do
-    {parsed, _, _} = OptionParser.parse(args, strict: @expected_args)
+  @spec parse_as_options([{atom, atom}], [String.t()]) :: [{atom, String.t()}]
+  def parse_as_options(expected_args, actual_args) do
+    {parsed, _, _} = OptionParser.parse(actual_args, strict: expected_args)
     parsed
   end
 
-  @spec parse_as_positional([String.t()]) :: [{atom, String.t()}]
-  def parse_as_positional(args) do
-    parsed =
-      Enum.zip(
-        Enum.map(@expected_args, fn {arg, _} -> arg end),
-        args
-      )
-
-    case parse_duration(Keyword.get(parsed, :end_time, "")) do
-      {:ok, _} -> parsed |> Keyword.delete(:end_time) |> Keyword.put(:duration, parsed[:end_time])
-      {:error, _} -> parsed
-    end
+  @spec parse_as_positional([{atom, atom}], [String.t()]) :: [{atom, String.t()}]
+  def parse_as_positional(expected_args, acual_args) do
+    Enum.zip(
+      Enum.map(expected_args, fn {arg, _} -> arg end),
+      acual_args
+    )
   end
 
-  @spec parse_as_kv([String.t()]) :: [{atom, String.t()}]
-  def parse_as_kv(args) do
+  @spec parse_as_kv([{atom, atom}], [String.t()]) :: [{atom, String.t()}]
+  def parse_as_kv(expected_args, actual_args) do
     parse_as_options(
+      expected_args,
       Enum.flat_map(
-        args,
+        actual_args,
         fn arg -> String.split("--#{arg}", "=") end
       )
     )

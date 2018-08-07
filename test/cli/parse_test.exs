@@ -5,6 +5,14 @@ defmodule Cli.ParseTest do
 
   alias Cli.Parse, as: Parser
 
+  @expected_task_args [
+    task: :string,
+    start_date: :string,
+    start_time: :string,
+    end_time: :string,
+    duration: :string
+  ]
+
   test "parses duration parameters" do
     assert Parser.parse_duration("30m") == {:ok, 30}
     assert Parser.parse_duration("5h") == {:ok, 300}
@@ -108,97 +116,125 @@ defmodule Cli.ParseTest do
   end
 
   test "parses arguments as key=value pairs" do
-    assert Parser.parse_as_kv([
-             "task=some-task",
-             "start-date=today+1d"
-           ]) == [
+    assert Parser.parse_as_kv(
+             @expected_task_args,
+             [
+               "task=some-task",
+               "start-date=today+1d"
+             ]
+           ) == [
              task: "some-task",
              start_date: "today+1d"
            ]
 
-    assert Parser.parse_as_kv([
-             "task=some-task",
-             "start-date=today",
-             "start-time=now-10m",
-             "end-time=now"
-           ]) == [
+    assert Parser.parse_as_kv(
+             @expected_task_args,
+             [
+               "task=some-task",
+               "start-date=today",
+               "start-time=now-10m",
+               "end-time=now"
+             ]
+           ) == [
              task: "some-task",
              start_date: "today",
              start_time: "now-10m",
              end_time: "now"
            ]
 
-    assert Parser.parse_as_kv([
-             "task=some-task",
-             "start-date=today",
-             "start-time=now-10m",
-             "duration=2h"
-           ]) == [
+    assert Parser.parse_as_kv(
+             @expected_task_args,
+             [
+               "task=some-task",
+               "start-date=today",
+               "start-time=now-10m",
+               "duration=2h"
+             ]
+           ) == [
              task: "some-task",
              start_date: "today",
              start_time: "now-10m",
              duration: "2h"
            ]
 
-    assert Parser.parse_as_kv([
-             "task=some-task",
-             "start-date=today+1d",
-             "some-param=test",
-             "other=42"
-           ]) == [
+    assert Parser.parse_as_kv(
+             @expected_task_args,
+             [
+               "task=some-task",
+               "start-date=today+1d",
+               "some-param=test",
+               "other=42"
+             ]
+           ) == [
              task: "some-task",
              start_date: "today+1d"
            ]
 
-    assert Parser.parse_as_kv([
-             "some-task=some-task",
-             "some-start-date=today",
-             "some-start-time=now-10m",
-             "some-end-time=now"
-           ]) == []
+    assert Parser.parse_as_kv(
+             @expected_task_args,
+             [
+               "some-task=some-task",
+               "some-start-date=today",
+               "some-start-time=now-10m",
+               "some-end-time=now"
+             ]
+           ) == []
 
-    assert Parser.parse_as_kv([]) == []
+    assert Parser.parse_as_kv(@expected_task_args, []) == []
   end
 
   test "parses arguments as positional parameters" do
-    assert Parser.parse_as_positional([
-             "some-task",
-             "today+1d"
-           ]) == [
+    assert Parser.parse_as_positional(
+             @expected_task_args,
+             [
+               "some-task",
+               "today+1d"
+             ]
+           ) == [
              task: "some-task",
              start_date: "today+1d"
            ]
 
-    assert Parser.parse_as_positional([
-             "some-task",
-             "today",
-             "now-10m",
-             "now"
-           ]) == [
+    assert Parser.parse_as_positional(
+             @expected_task_args,
+             [
+               "some-task",
+               "today",
+               "now-10m",
+               "now"
+             ]
+           ) == [
              task: "some-task",
              start_date: "today",
              start_time: "now-10m",
              end_time: "now"
            ]
 
-    assert Parser.parse_as_positional([
-             "some-task",
-             "today",
-             "now-10m",
-             "2h"
-           ]) == [
-             duration: "2h",
+    assert Parser.parse_as_positional(
+             @expected_task_args,
+             [
+               "some-task",
+               "today",
+               "now-10m",
+               "2h"
+             ]
+           ) == [
              task: "some-task",
              start_date: "today",
-             start_time: "now-10m"
+             start_time: "now-10m",
+             # valid positional param but invalid logical param
+             end_time: "2h"
            ]
 
-    assert Parser.parse_as_positional([
-             "some-task",
-             "today+1d",
-             "test",
-             "42"
-           ]) == [
+    assert Parser.parse_as_positional(
+             @expected_task_args,
+             [
+               "some-task",
+               "today+1d",
+               "test",
+               "42"
+             ]
+           ) == [
              task: "some-task",
              start_date: "today+1d",
              # valid positional param but invalid logical param
@@ -207,78 +243,93 @@ defmodule Cli.ParseTest do
              end_time: "42"
            ]
 
-    assert Parser.parse_as_positional([]) == []
+    assert Parser.parse_as_positional(@expected_task_args, []) == []
   end
 
   test "parses arguments as options" do
-    assert Parser.parse_as_options([
-             "--task",
-             "some-task",
-             "--start-date",
-             "today+1d"
-           ]) == [
+    assert Parser.parse_as_options(
+             @expected_task_args,
+             [
+               "--task",
+               "some-task",
+               "--start-date",
+               "today+1d"
+             ]
+           ) == [
              task: "some-task",
              start_date: "today+1d"
            ]
 
-    assert Parser.parse_as_options([
-             "--task",
-             "some-task",
-             "--start-date",
-             "today",
-             "--start-time",
-             "now-10m",
-             "--end-time",
-             "now"
-           ]) == [
+    assert Parser.parse_as_options(
+             @expected_task_args,
+             [
+               "--task",
+               "some-task",
+               "--start-date",
+               "today",
+               "--start-time",
+               "now-10m",
+               "--end-time",
+               "now"
+             ]
+           ) == [
              task: "some-task",
              start_date: "today",
              start_time: "now-10m",
              end_time: "now"
            ]
 
-    assert Parser.parse_as_options([
-             "--task",
-             "some-task",
-             "--start-date",
-             "today",
-             "--start-time",
-             "now-10m",
-             "--duration",
-             "2h"
-           ]) == [
+    assert Parser.parse_as_options(
+             @expected_task_args,
+             [
+               "--task",
+               "some-task",
+               "--start-date",
+               "today",
+               "--start-time",
+               "now-10m",
+               "--duration",
+               "2h"
+             ]
+           ) == [
              task: "some-task",
              start_date: "today",
              start_time: "now-10m",
              duration: "2h"
            ]
 
-    assert Parser.parse_as_options([
-             "--task",
-             "some-task",
-             "--start-date",
-             "today+1d",
-             "--some-param",
-             "test",
-             "--other",
-             "42"
-           ]) == [
+    assert Parser.parse_as_options(
+             @expected_task_args,
+             [
+               "--task",
+               "some-task",
+               "--start-date",
+               "today+1d",
+               "--some-param",
+               "test",
+               "--other",
+               "42"
+             ]
+           ) == [
              task: "some-task",
              start_date: "today+1d"
            ]
 
-    assert Parser.parse_as_options([
-             "--some-task",
-             "some-task",
-             "--some-start-date",
-             "today",
-             "--some-start-time",
-             "now-10m",
-             "--some-end-time",
-             "now"
-           ]) == []
+    assert Parser.parse_as_options(
+             @expected_task_args,
+             [
+               "--some-task",
+               "some-task",
+               "--some-start-date",
+               "today",
+               "--some-start-time",
+               "now-10m",
+               "--some-end-time",
+               "now"
+             ]
+           ) == []
 
-    assert Parser.parse_as_options([]) == []
+    assert Parser.parse_as_options(@expected_task_args, []) == []
   end
 
   test "generates duration from parsed parameters" do
@@ -427,6 +478,98 @@ defmodule Cli.ParseTest do
     assert expected_task.duration == actual_task.duration
 
     assert Parser.args_to_task([]) == {:error, "No arguments specified"}
+  end
+
+  test "parses arguments into queries" do
+    args = [
+      "--from",
+      "2018-12-21",
+      "--to",
+      "2018-12-22"
+    ]
+
+    {:ok, expected_from, 0} = DateTime.from_iso8601("2018-12-21T00:00:00Z")
+    {:ok, expected_to, 0} = DateTime.from_iso8601("2018-12-22T23:59:59Z")
+
+    expected_query = %Api.Query{
+      from: expected_from,
+      to: expected_to,
+      sort_by: "start"
+    }
+
+    {:ok, actual_query} = Parser.args_to_query(args)
+    assert expected_query == actual_query
+
+    args = [
+      "--from",
+      "2018-12-21",
+      "--to",
+      "2018-12-22",
+      "--sort-by",
+      "task"
+    ]
+
+    {:ok, expected_from, 0} = DateTime.from_iso8601("2018-12-21T00:00:00Z")
+    {:ok, expected_to, 0} = DateTime.from_iso8601("2018-12-22T23:59:59Z")
+
+    expected_query = %Api.Query{
+      from: expected_from,
+      to: expected_to,
+      sort_by: "task"
+    }
+
+    {:ok, actual_query} = Parser.args_to_query(args)
+    assert expected_query == actual_query
+
+    args = [
+      "from=2018-12-21",
+      "to=2018-12-22",
+      "sort-by=duration"
+    ]
+
+    {:ok, expected_from, 0} = DateTime.from_iso8601("2018-12-21T00:00:00Z")
+    {:ok, expected_to, 0} = DateTime.from_iso8601("2018-12-22T23:59:59Z")
+
+    expected_query = %Api.Query{
+      from: expected_from,
+      to: expected_to,
+      sort_by: "duration"
+    }
+
+    {:ok, actual_query} = Parser.args_to_query(args)
+    assert expected_query == actual_query
+
+    args = [
+      "2018-12-21",
+      "2018-12-22",
+      "id"
+    ]
+
+    {:ok, expected_from, 0} = DateTime.from_iso8601("2018-12-21T00:00:00Z")
+    {:ok, expected_to, 0} = DateTime.from_iso8601("2018-12-22T23:59:59Z")
+
+    expected_query = %Api.Query{
+      from: expected_from,
+      to: expected_to,
+      sort_by: "id"
+    }
+
+    {:ok, actual_query} = Parser.args_to_query(args)
+    assert expected_query == actual_query
+
+    args = []
+
+    {:ok, expected_from, 0} = DateTime.from_iso8601("#{Date.utc_today()}T00:00:00Z")
+    {:ok, expected_to, 0} = DateTime.from_iso8601("#{Date.utc_today()}T23:59:59Z")
+
+    expected_query = %Api.Query{
+      from: expected_from,
+      to: expected_to,
+      sort_by: "start"
+    }
+
+    {:ok, actual_query} = Parser.args_to_query(args)
+    assert expected_query == actual_query
   end
 
   test "parse arguments into application options" do

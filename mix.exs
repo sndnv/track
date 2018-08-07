@@ -23,7 +23,7 @@ defmodule Track.MixProject do
 
   def application do
     [
-      extra_applications: [:logger]
+      extra_applications: [:logger, :table_rex]
     ]
   end
 
@@ -31,6 +31,7 @@ defmodule Track.MixProject do
     [
       {:poison, "~> 4.0.1"},
       {:elixir_uuid, "~> 1.2"},
+      {:table_rex, "~> 2.0.0"},
       {:excoveralls, "~> 0.9.1", only: :test}
     ]
   end
@@ -43,7 +44,7 @@ defmodule Track.MixProject do
 
   defp aliases do
     [
-      build: ["clean", "format", "deps.get", "compile", "escript.build"],
+      build: ["deps.get", "clean", "format", "compile", "escript.build"],
       qa: ["build", "coveralls.html"]
     ]
   end
