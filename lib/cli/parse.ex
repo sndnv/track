@@ -16,7 +16,8 @@ defmodule Cli.Parse do
   @expected_query_args [
     from: :string,
     to: :string,
-    sort_by: :string
+    sort_by: :string,
+    order: :string
   ]
 
   @spec args_to_query([String.t()]) :: Api.Query.t()
@@ -42,13 +43,15 @@ defmodule Cli.Parse do
          {:ok, to_date} <- parse_date(Keyword.get(parsed, :to, "today")),
          {:ok, from, 0} <- DateTime.from_iso8601("#{from_date}T00:00:00Z"),
          {:ok, to, 0} <- DateTime.from_iso8601("#{to_date}T23:59:59Z"),
-         sort_by <- Keyword.get(parsed, :sort_by, "start") do
+         sort_by <- Keyword.get(parsed, :sort_by, "start"),
+         order <- Keyword.get(parsed, :order, "desc") do
       {
         :ok,
         %Api.Query{
           from: from,
           to: to,
-          sort_by: sort_by
+          sort_by: sort_by,
+          order: order
         }
       }
     end

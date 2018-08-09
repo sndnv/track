@@ -38,7 +38,8 @@ defmodule Aggregate.TasksTest do
     query = %Api.Query{
       from: Enum.at(tasks, 0).start,
       to: Enum.at(tasks, 0).start,
-      sort_by: "task"
+      sort_by: "task",
+      order: "desc"
     }
 
     assert Aggregate.Tasks.as_sorted_list(stream, query) == [
@@ -50,7 +51,8 @@ defmodule Aggregate.TasksTest do
     query = %Api.Query{
       from: Enum.at(tasks, 0).start,
       to: Enum.at(tasks, 0).start,
-      sort_by: "start"
+      sort_by: "start",
+      order: "desc"
     }
 
     assert Aggregate.Tasks.as_sorted_list(stream, query) == [
@@ -62,7 +64,8 @@ defmodule Aggregate.TasksTest do
     query = %Api.Query{
       from: Enum.at(tasks, 0).start,
       to: Enum.at(tasks, 0).start,
-      sort_by: "duration"
+      sort_by: "duration",
+      order: "desc"
     }
 
     assert Aggregate.Tasks.as_sorted_list(stream, query) == [
@@ -94,7 +97,8 @@ defmodule Aggregate.TasksTest do
     query = %Api.Query{
       from: Enum.at(tasks, 0).start,
       to: Enum.at(tasks, 0).start,
-      sort_by: "task"
+      sort_by: "task",
+      order: "desc"
     }
 
     actual_aggregation =
@@ -106,7 +110,8 @@ defmodule Aggregate.TasksTest do
     query = %Api.Query{
       from: Enum.at(tasks, 0).start,
       to: Enum.at(tasks, 0).start,
-      sort_by: "duration"
+      sort_by: "duration",
+      order: "desc"
     }
 
     actual_aggregation =
@@ -118,7 +123,8 @@ defmodule Aggregate.TasksTest do
     query = %Api.Query{
       from: Enum.at(tasks, 0).start,
       to: Enum.at(tasks, 0).start,
-      sort_by: "start"
+      sort_by: "start",
+      order: "desc"
     }
 
     actual_aggregation =

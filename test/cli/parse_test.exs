@@ -494,7 +494,8 @@ defmodule Cli.ParseTest do
     expected_query = %Api.Query{
       from: expected_from,
       to: expected_to,
-      sort_by: "start"
+      sort_by: "start",
+      order: "desc"
     }
 
     {:ok, actual_query} = Parser.args_to_query(args)
@@ -515,7 +516,8 @@ defmodule Cli.ParseTest do
     expected_query = %Api.Query{
       from: expected_from,
       to: expected_to,
-      sort_by: "task"
+      sort_by: "task",
+      order: "desc"
     }
 
     {:ok, actual_query} = Parser.args_to_query(args)
@@ -533,7 +535,28 @@ defmodule Cli.ParseTest do
     expected_query = %Api.Query{
       from: expected_from,
       to: expected_to,
-      sort_by: "duration"
+      sort_by: "duration",
+      order: "desc"
+    }
+
+    {:ok, actual_query} = Parser.args_to_query(args)
+    assert expected_query == actual_query
+
+    args = [
+      "from=2018-12-21",
+      "to=2018-12-22",
+      "sort-by=duration",
+      "order=asc"
+    ]
+
+    {:ok, expected_from, 0} = DateTime.from_iso8601("2018-12-21T00:00:00Z")
+    {:ok, expected_to, 0} = DateTime.from_iso8601("2018-12-22T23:59:59Z")
+
+    expected_query = %Api.Query{
+      from: expected_from,
+      to: expected_to,
+      sort_by: "duration",
+      order: "asc"
     }
 
     {:ok, actual_query} = Parser.args_to_query(args)
@@ -551,7 +574,8 @@ defmodule Cli.ParseTest do
     expected_query = %Api.Query{
       from: expected_from,
       to: expected_to,
-      sort_by: "id"
+      sort_by: "id",
+      order: "desc"
     }
 
     {:ok, actual_query} = Parser.args_to_query(args)
@@ -565,7 +589,8 @@ defmodule Cli.ParseTest do
     expected_query = %Api.Query{
       from: expected_from,
       to: expected_to,
-      sort_by: "start"
+      sort_by: "start",
+      order: "desc"
     }
 
     {:ok, actual_query} = Parser.args_to_query(args)

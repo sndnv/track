@@ -157,26 +157,43 @@ defmodule Cli.RenderTest do
     expected_task_4 = %Api.Task{
       id: UUID.uuid4(),
       task: "test-task3",
-      start: Enum.at(tasks, 0).start,
+      start: NaiveDateTime.utc_now(),
       duration: 45
     }
 
     expected_task_5 = %Api.Task{
       id: UUID.uuid4(),
       task: "test-task3",
-      start: Enum.at(tasks, 0).start,
+      start: NaiveDateTime.utc_now() |> NaiveDateTime.add(24 * 60 * 60, :second),
       duration: 100
     }
 
     expected_task_6 = %Api.Task{
       id: UUID.uuid4(),
       task: List.duplicate("test", 120) |> Enum.join(),
-      start: Enum.at(tasks, 0).start,
+      start: NaiveDateTime.utc_now() |> NaiveDateTime.add(-24 * 60 * 60, :second),
+      duration: 85
+    }
+
+    expected_task_7 = %Api.Task{
+      id: UUID.uuid4(),
+      task: "test-task3",
+      start: NaiveDateTime.utc_now() |> NaiveDateTime.add(10 * 24 * 60 * 60, :second),
+      duration: 100
+    }
+
+    expected_task_8 = %Api.Task{
+      id: UUID.uuid4(),
+      task: List.duplicate("test", 120) |> Enum.join(),
+      start: NaiveDateTime.utc_now() |> NaiveDateTime.add(-10 * 24 * 60 * 60, :second),
       duration: 85
     }
 
     stream =
-      Cli.Fixtures.mock_tasks_stream(tasks ++ [expected_task_4, expected_task_5, expected_task_6])
+      Cli.Fixtures.mock_tasks_stream(
+        tasks ++
+          [expected_task_4, expected_task_5, expected_task_6, expected_task_7, expected_task_8]
+      )
 
     query = %Api.Query{
       from: Enum.at(tasks, 0).start,
