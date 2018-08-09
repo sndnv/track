@@ -48,13 +48,33 @@ defmodule Api.Service do
   def list_tasks(query) do
     case Api.Config.get(Config, :store) do
       {:ok, store} ->
-        with {:ok, stream} <- Persistence.Store.list(store, Store),
-             {:ok, table} <-
-               stream
-               |> flatten()
-               |> with_query_filter(query)
-               |> Aggregate.Tasks.list_to_table(query) do
-          {:ok, table}
+        with {:ok, stream} <- Persistence.Store.list(store, Store) do
+          {
+            :ok,
+            stream
+            |> flatten()
+            |> with_query_filter(query)
+            |> Aggregate.Tasks.as_sorted_list(query)
+          }
+        end
+
+      :error ->
+        message = "No store is configured"
+        {:error, message}
+    end
+  end
+
+  def get_stats(query) do
+    case Api.Config.get(Config, :store) do
+      {:ok, store} ->
+        with {:ok, stream} <- Persistence.Store.list(store, Store) do
+          {
+            :ok,
+            stream
+            |> flatten()
+            |> with_query_filter(query)
+            |> Aggregate.Tasks.with_total_duration(query)
+          }
         end
 
       :error ->

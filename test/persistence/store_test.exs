@@ -15,7 +15,7 @@ defmodule Persistence.StoreTest do
     |> Enum.sort_by(fn entry -> entry.task end)
   end
 
-  test "pass requests to the specified store" do
+  test "passes requests to the specified store" do
     {:ok, start_time, 0} = DateTime.from_iso8601("2018-12-21T01:02:03Z")
 
     expected_task_1 = %Api.Task{
