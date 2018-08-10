@@ -9,13 +9,13 @@ defmodule Cli.RenderTest do
   end
 
   test "converts timestamps to string" do
-    {:ok, dt} = NaiveDateTime.from_iso8601("2018-12-21T01:02:03Z")
+    {:ok, dt} = NaiveDateTime.from_iso8601("2018-12-21T01:02:03")
     assert Cli.Render.naive_date_time_to_string(dt) == "2018-12-21 01:02"
 
-    {:ok, dt} = NaiveDateTime.from_iso8601("2018-03-04T00:00:03Z")
+    {:ok, dt} = NaiveDateTime.from_iso8601("2018-03-04T00:00:03")
     assert Cli.Render.naive_date_time_to_string(dt) == "2018-03-04 00:00"
 
-    {:ok, dt} = NaiveDateTime.from_iso8601("2000-01-01T00:01:02Z")
+    {:ok, dt} = NaiveDateTime.from_iso8601("2000-01-01T00:01:02")
     assert Cli.Render.naive_date_time_to_string(dt) == "2000-01-01 00:01"
   end
 
@@ -110,11 +110,11 @@ defmodule Cli.RenderTest do
     assert current_month_beginning == :current_month || current_month_middle == :current_month ||
              current_month_end == :current_month
 
-    {:ok, past} = NaiveDateTime.from_iso8601("1999-12-21T01:02:03Z")
+    {:ok, past} = NaiveDateTime.from_iso8601("1999-12-21T01:02:03")
     past = Cli.Render.naive_date_time_to_string(past)
     assert Cli.Render.naive_date_time_to_period(past, current_periods) == :other
 
-    {:ok, future} = NaiveDateTime.from_iso8601("2999-12-21T01:02:03Z")
+    {:ok, future} = NaiveDateTime.from_iso8601("2999-12-21T01:02:03")
     future = Cli.Render.naive_date_time_to_string(future)
     assert Cli.Render.naive_date_time_to_period(future, current_periods) == :other
   end

@@ -83,8 +83,8 @@ defmodule Persistence.Log do
           |> Stream.map(fn raw_entry ->
             case Poison.decode(raw_entry, as: %Api.Task{}) do
               {:ok, entry} ->
-                case DateTime.from_iso8601(entry.start) do
-                  {:ok, start, 0} ->
+                case NaiveDateTime.from_iso8601(entry.start) do
+                  {:ok, start} ->
                     {:ok, %{entry | start: start}}
 
                   {:error, error} ->

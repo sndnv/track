@@ -19,7 +19,7 @@ defmodule Persistence.LogTest do
     |> Stream.map(&String.replace(&1, "\n", ""))
     |> Stream.map(fn raw_entry -> Poison.decode!(raw_entry, as: %Api.Task{}) end)
     |> Stream.map(fn entry ->
-      {:ok, start, 0} = DateTime.from_iso8601(entry.start)
+      {:ok, start} = NaiveDateTime.from_iso8601(entry.start)
       %{entry | start: start}
     end)
     |> Enum.to_list()

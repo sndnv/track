@@ -16,7 +16,7 @@ defmodule Persistence.StoreTest do
   end
 
   test "passes requests to the specified store" do
-    {:ok, start_time, 0} = DateTime.from_iso8601("2018-12-21T01:02:03Z")
+    {:ok, start_time} = NaiveDateTime.from_iso8601("2018-12-21T01:02:03")
 
     expected_task_1 = %Api.Task{
       id: UUID.uuid4(),

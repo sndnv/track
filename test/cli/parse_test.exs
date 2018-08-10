@@ -25,55 +25,55 @@ defmodule Cli.ParseTest do
 
   test "parses time parameters" do
     expected_time = Time.utc_now()
-    {:ok, actual_time} = Parser.parse_time("now")
+    {:ok, :utc, actual_time} = Parser.parse_time("now")
     assert Time.diff(expected_time, actual_time, :second) == 0
 
     expected_time = Time.add(Time.utc_now(), 60, :second)
-    {:ok, actual_time} = Parser.parse_time("now+1m")
+    {:ok, :utc, actual_time} = Parser.parse_time("now+1m")
     assert Time.diff(expected_time, actual_time, :second) == 0
 
     expected_time = Time.add(Time.utc_now(), -5 * 60, :second)
-    {:ok, actual_time} = Parser.parse_time("now-5m")
+    {:ok, :utc, actual_time} = Parser.parse_time("now-5m")
     assert Time.diff(expected_time, actual_time, :second) == 0
 
     expected_time = Time.utc_now()
-    {:ok, actual_time} = Parser.parse_time("now+0m")
+    {:ok, :utc, actual_time} = Parser.parse_time("now+0m")
     assert Time.diff(expected_time, actual_time, :second) == 0
 
     expected_time = Time.utc_now()
-    {:ok, actual_time} = Parser.parse_time("now-0m")
+    {:ok, :utc, actual_time} = Parser.parse_time("now-0m")
     assert Time.diff(expected_time, actual_time, :second) == 0
 
     expected_time = Time.add(Time.utc_now(), 2 * 60 * 60, :second)
-    {:ok, actual_time} = Parser.parse_time("now+2h")
+    {:ok, :utc, actual_time} = Parser.parse_time("now+2h")
     assert Time.diff(expected_time, actual_time, :second) == 0
 
     expected_time = Time.add(Time.utc_now(), -6 * 60 * 60, :second)
-    {:ok, actual_time} = Parser.parse_time("now-6h")
+    {:ok, :utc, actual_time} = Parser.parse_time("now-6h")
     assert Time.diff(expected_time, actual_time, :second) == 0
 
     expected_time = Time.utc_now()
-    {:ok, actual_time} = Parser.parse_time("now+0h")
+    {:ok, :utc, actual_time} = Parser.parse_time("now+0h")
     assert Time.diff(expected_time, actual_time, :second) == 0
 
     expected_time = Time.utc_now()
-    {:ok, actual_time} = Parser.parse_time("now-0h")
+    {:ok, :utc, actual_time} = Parser.parse_time("now-0h")
     assert Time.diff(expected_time, actual_time, :second) == 0
 
     {:ok, expected_time} = Time.from_iso8601("12:34:56")
-    {:ok, actual_time} = Parser.parse_time("12:34:56")
+    {:ok, :local, actual_time} = Parser.parse_time("12:34:56")
     assert Time.diff(expected_time, actual_time, :second) == 0
 
     {:ok, expected_time} = Time.from_iso8601("12:34:00")
-    {:ok, actual_time} = Parser.parse_time("12:34")
+    {:ok, :local, actual_time} = Parser.parse_time("12:34")
     assert Time.diff(expected_time, actual_time, :second) == 0
 
     {:ok, expected_time} = Time.from_iso8601("12:34:00")
-    {:ok, actual_time} = Parser.parse_time("12:34:--")
+    {:ok, :local, actual_time} = Parser.parse_time("12:34:--")
     assert Time.diff(expected_time, actual_time, :second) == 0
 
     {:ok, expected_time} = Time.from_iso8601("12:34:00")
-    {:ok, actual_time} = Parser.parse_time("12:34.00")
+    {:ok, :local, actual_time} = Parser.parse_time("12:34.00")
     assert Time.diff(expected_time, actual_time, :second) == 0
 
     assert Parser.parse_time("12.34.56") == {:error, "Invalid time specified: [12.34.56]"}
@@ -332,59 +332,137 @@ defmodule Cli.ParseTest do
     assert Parser.parse_as_options(@expected_task_args, []) == []
   end
 
+  test "converts date/time (local) strings to timestamps (UTC)" do
+    {:ok, expected_date_time} = NaiveDateTime.from_iso8601("2018-12-21T21:30:00")
+    {:ok, actual_date_time} = Parser.from_local_time_zone("2018-12-21", "21:30:00", :utc)
+    assert expected_date_time == actual_date_time
+
+    {:error, error} = Parser.from_local_time_zone("2018-12-21", "21:30", :utc)
+    assert error == :invalid_format
+
+    {:ok, expected_date_time} = NaiveDateTime.from_iso8601("2018-12-21T21:30:00")
+
+    [expected_date_time] =
+      expected_date_time
+      |> NaiveDateTime.to_erl()
+      |> :calendar.local_time_to_universal_time_dst()
+      |> Enum.map(fn dt -> NaiveDateTime.from_erl!(dt) end)
+
+    {:ok, actual_date_time} = Parser.from_local_time_zone("2018-12-21", "21:30:00", :local)
+    assert expected_date_time == actual_date_time
+
+    # test result is dependant on the local user's time zone
+    {:ok, expected_date_time} = NaiveDateTime.from_iso8601("2018-03-25T02:33:00")
+
+    case Parser.from_local_time_zone("2018-03-25", "02:33:00", :local) do
+      {:ok, actual_date_time} ->
+        [expected_date_time] =
+          expected_date_time
+          |> NaiveDateTime.to_erl()
+          |> :calendar.local_time_to_universal_time_dst()
+          |> Enum.map(fn dt -> NaiveDateTime.from_erl!(dt) end)
+
+        assert expected_date_time == actual_date_time
+
+      {:error, error} ->
+        assert error == "Period skipped due to switching to DST"
+    end
+
+    # test result is dependant on the local user's time zone
+    {:ok, expected_date_time} = NaiveDateTime.from_iso8601("2018-10-28T02:33:00")
+
+    expected_date_time =
+      expected_date_time
+      |> NaiveDateTime.to_erl()
+      |> :calendar.local_time_to_universal_time_dst()
+      |> Enum.map(fn dt -> NaiveDateTime.from_erl!(dt) end)
+
+    {:ok, actual_date_time} = Parser.from_local_time_zone("2018-10-28", "02:33:00", :local)
+
+    case expected_date_time do
+      [] -> assert true
+      [expected_date_time] -> assert expected_date_time == actual_date_time
+      [_, expected_date_time] -> assert expected_date_time == actual_date_time
+    end
+  end
+
   test "generates duration from parsed parameters" do
+    start_date = "2018-12-21"
+
     parsed_args = [end_time: "now+10m"]
-    {:ok, start_time} = Parser.parse_time("now")
+    {:ok, :utc, start_time} = Parser.parse_time("now")
+    {:ok, start_time} = Parser.from_local_time_zone(start_date, start_time, :utc)
     expected_duration = 10
-    {:ok, actual_duration} = Parser.duration_from_parsed_args(parsed_args, start_time)
+    {:ok, actual_duration} = Parser.duration_from_parsed_args(parsed_args, start_time, start_date)
+    assert expected_duration == actual_duration
+
+    parsed_args = [end_time: "21:43"]
+    {:ok, :local, start_time} = Parser.parse_time("21:30")
+    {:ok, start_time} = Parser.from_local_time_zone(start_date, start_time, :local)
+    expected_duration = 13
+    {:ok, actual_duration} = Parser.duration_from_parsed_args(parsed_args, start_time, start_date)
     assert expected_duration == actual_duration
 
     parsed_args = [end_time: "now+1h"]
-    {:ok, start_time} = Parser.parse_time("now+45m")
+    {:ok, :utc, start_time} = Parser.parse_time("now+45m")
+    {:ok, start_time} = Parser.from_local_time_zone(start_date, start_time, :utc)
     expected_duration = 15
-    {:ok, actual_duration} = Parser.duration_from_parsed_args(parsed_args, start_time)
+    {:ok, actual_duration} = Parser.duration_from_parsed_args(parsed_args, start_time, start_date)
     assert expected_duration == actual_duration
 
     parsed_args = [end_time: "now+23h"]
-    {:ok, start_time} = Parser.parse_time("now+5h")
+    {:ok, :utc, start_time} = Parser.parse_time("now+5h")
+    {:ok, start_time} = Parser.from_local_time_zone(start_date, start_time, :utc)
     expected_duration = 18 * 60
-    {:ok, actual_duration} = Parser.duration_from_parsed_args(parsed_args, start_time)
+    {:ok, actual_duration} = Parser.duration_from_parsed_args(parsed_args, start_time, start_date)
     assert expected_duration == actual_duration
 
     parsed_args = [end_time: "now"]
-    {:ok, start_time} = Parser.parse_time("now")
+    {:ok, :utc, start_time} = Parser.parse_time("now")
+    {:ok, start_time} = Parser.from_local_time_zone(start_date, start_time, :utc)
 
-    assert Parser.duration_from_parsed_args(parsed_args, start_time) ==
+    assert Parser.duration_from_parsed_args(parsed_args, start_time, start_date) ==
              {:error, "The specified start and end times are the same"}
 
     parsed_args = [end_time: "tomorrow"]
-    {:ok, start_time} = Parser.parse_time("now")
+    {:ok, :utc, start_time} = Parser.parse_time("now")
 
-    assert Parser.duration_from_parsed_args(parsed_args, start_time) ==
-             {:error, "Failed to parse end time: [Invalid time specified: [tomorrow]]"}
+    assert Parser.duration_from_parsed_args(parsed_args, start_time, start_date) ==
+             {:error, "Invalid time specified: [tomorrow]"}
 
     parsed_args = [end_time: "now-10m"]
-    {:ok, start_time} = Parser.parse_time("now")
+    {:ok, :utc, start_time} = Parser.parse_time("now")
+    {:ok, start_time} = Parser.from_local_time_zone(start_date, start_time, :utc)
     expected_duration = 24 * 60 - 10
-    {:ok, actual_duration} = Parser.duration_from_parsed_args(parsed_args, start_time)
+    {:ok, actual_duration} = Parser.duration_from_parsed_args(parsed_args, start_time, start_date)
+    assert expected_duration == actual_duration
+
+    parsed_args = [end_time: "21:30"]
+    {:ok, :local, start_time} = Parser.parse_time("21:43")
+    {:ok, start_time} = Parser.from_local_time_zone(start_date, start_time, :local)
+    expected_duration = 24 * 60 - 13
+    {:ok, actual_duration} = Parser.duration_from_parsed_args(parsed_args, start_time, start_date)
     assert expected_duration == actual_duration
 
     parsed_args = [duration: "10m"]
-    {:ok, start_time} = Parser.parse_time("now")
+    {:ok, :utc, start_time} = Parser.parse_time("now")
+    {:ok, start_time} = Parser.from_local_time_zone(start_date, start_time, :utc)
     expected_duration = 10
-    {:ok, actual_duration} = Parser.duration_from_parsed_args(parsed_args, start_time)
+    {:ok, actual_duration} = Parser.duration_from_parsed_args(parsed_args, start_time, start_date)
     assert expected_duration == actual_duration
 
     parsed_args = [duration: "1h"]
-    {:ok, start_time} = Parser.parse_time("now+45m")
+    {:ok, :utc, start_time} = Parser.parse_time("now+45m")
+    {:ok, start_time} = Parser.from_local_time_zone(start_date, start_time, :utc)
     expected_duration = 60
-    {:ok, actual_duration} = Parser.duration_from_parsed_args(parsed_args, start_time)
+    {:ok, actual_duration} = Parser.duration_from_parsed_args(parsed_args, start_time, start_date)
     assert expected_duration == actual_duration
 
     parsed_args = []
-    {:ok, start_time} = Parser.parse_time("now+5h")
+    {:ok, :utc, start_time} = Parser.parse_time("now+5h")
+    {:ok, start_time} = Parser.from_local_time_zone(start_date, start_time, :utc)
     expected_duration = 0
-    {:ok, actual_duration} = Parser.duration_from_parsed_args(parsed_args, start_time)
+    {:ok, actual_duration} = Parser.duration_from_parsed_args(parsed_args, start_time, start_date)
     assert expected_duration == actual_duration
   end
 
@@ -400,7 +478,7 @@ defmodule Cli.ParseTest do
       "23:00"
     ]
 
-    {:ok, expected_start, 0} = DateTime.from_iso8601("2018-12-21T21:35:00Z")
+    expected_start = local_to_utc_timestamp("2018-12-21T21:35:00Z")
 
     expected_task = %Api.Task{
       id: UUID.uuid4(),
@@ -421,7 +499,7 @@ defmodule Cli.ParseTest do
       "end-time=23:00"
     ]
 
-    {:ok, expected_start, 0} = DateTime.from_iso8601("2018-12-21T21:35:00Z")
+    expected_start = local_to_utc_timestamp("2018-12-21T21:35:00Z")
 
     expected_task = %Api.Task{
       id: UUID.uuid4(),
@@ -442,7 +520,7 @@ defmodule Cli.ParseTest do
       "23:00"
     ]
 
-    {:ok, expected_start, 0} = DateTime.from_iso8601("2018-12-21T21:35:00Z")
+    expected_start = local_to_utc_timestamp("2018-12-21T21:35:00Z")
 
     expected_task = %Api.Task{
       id: UUID.uuid4(),
@@ -463,7 +541,7 @@ defmodule Cli.ParseTest do
       "85m"
     ]
 
-    {:ok, expected_start, 0} = DateTime.from_iso8601("2018-12-21T21:35:00Z")
+    expected_start = local_to_utc_timestamp("2018-12-21T21:35:00Z")
 
     expected_task = %Api.Task{
       id: UUID.uuid4(),
@@ -488,8 +566,8 @@ defmodule Cli.ParseTest do
       "2018-12-22"
     ]
 
-    {:ok, expected_from, 0} = DateTime.from_iso8601("2018-12-21T00:00:00Z")
-    {:ok, expected_to, 0} = DateTime.from_iso8601("2018-12-22T23:59:59Z")
+    {:ok, expected_from} = NaiveDateTime.from_iso8601("2018-12-21T00:00:00")
+    {:ok, expected_to} = NaiveDateTime.from_iso8601("2018-12-22T23:59:59")
 
     expected_query = %Api.Query{
       from: expected_from,
@@ -510,8 +588,8 @@ defmodule Cli.ParseTest do
       "task"
     ]
 
-    {:ok, expected_from, 0} = DateTime.from_iso8601("2018-12-21T00:00:00Z")
-    {:ok, expected_to, 0} = DateTime.from_iso8601("2018-12-22T23:59:59Z")
+    {:ok, expected_from} = NaiveDateTime.from_iso8601("2018-12-21T00:00:00")
+    {:ok, expected_to} = NaiveDateTime.from_iso8601("2018-12-22T23:59:59")
 
     expected_query = %Api.Query{
       from: expected_from,
@@ -529,8 +607,8 @@ defmodule Cli.ParseTest do
       "sort-by=duration"
     ]
 
-    {:ok, expected_from, 0} = DateTime.from_iso8601("2018-12-21T00:00:00Z")
-    {:ok, expected_to, 0} = DateTime.from_iso8601("2018-12-22T23:59:59Z")
+    {:ok, expected_from} = NaiveDateTime.from_iso8601("2018-12-21T00:00:00")
+    {:ok, expected_to} = NaiveDateTime.from_iso8601("2018-12-22T23:59:59")
 
     expected_query = %Api.Query{
       from: expected_from,
@@ -549,8 +627,8 @@ defmodule Cli.ParseTest do
       "order=asc"
     ]
 
-    {:ok, expected_from, 0} = DateTime.from_iso8601("2018-12-21T00:00:00Z")
-    {:ok, expected_to, 0} = DateTime.from_iso8601("2018-12-22T23:59:59Z")
+    {:ok, expected_from} = NaiveDateTime.from_iso8601("2018-12-21T00:00:00")
+    {:ok, expected_to} = NaiveDateTime.from_iso8601("2018-12-22T23:59:59")
 
     expected_query = %Api.Query{
       from: expected_from,
@@ -568,8 +646,8 @@ defmodule Cli.ParseTest do
       "id"
     ]
 
-    {:ok, expected_from, 0} = DateTime.from_iso8601("2018-12-21T00:00:00Z")
-    {:ok, expected_to, 0} = DateTime.from_iso8601("2018-12-22T23:59:59Z")
+    {:ok, expected_from} = NaiveDateTime.from_iso8601("2018-12-21T00:00:00")
+    {:ok, expected_to} = NaiveDateTime.from_iso8601("2018-12-22T23:59:59")
 
     expected_query = %Api.Query{
       from: expected_from,
@@ -583,8 +661,8 @@ defmodule Cli.ParseTest do
 
     args = []
 
-    {:ok, expected_from, 0} = DateTime.from_iso8601("#{Date.utc_today()}T00:00:00Z")
-    {:ok, expected_to, 0} = DateTime.from_iso8601("#{Date.utc_today()}T23:59:59Z")
+    {:ok, expected_from} = NaiveDateTime.from_iso8601("#{Date.utc_today()}T00:00:00")
+    {:ok, expected_to} = NaiveDateTime.from_iso8601("#{Date.utc_today()}T23:59:59")
 
     expected_query = %Api.Query{
       from: expected_from,
@@ -691,5 +769,11 @@ defmodule Cli.ParseTest do
 
     args = []
     assert Parser.extract_application_options(args) == {[], []}
+  end
+
+  defp local_to_utc_timestamp(dt) do
+    {:ok, dt} = NaiveDateTime.from_iso8601(dt)
+    [dt] = dt |> NaiveDateTime.to_erl() |> :calendar.local_time_to_universal_time_dst()
+    dt |> NaiveDateTime.from_erl!()
   end
 end

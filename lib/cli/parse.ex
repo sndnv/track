@@ -1,6 +1,8 @@
 defmodule Cli.Parse do
   @moduledoc false
 
+  require Logger
+
   @application_options [verbose: :boolean, config: :string]
 
   @spec extract_application_options([String.to()]) :: {[{atom, term}], [String.t()]}
@@ -41,8 +43,8 @@ defmodule Cli.Parse do
 
     with {:ok, from_date} <- parse_date(Keyword.get(parsed, :from, "today")),
          {:ok, to_date} <- parse_date(Keyword.get(parsed, :to, "today")),
-         {:ok, from, 0} <- DateTime.from_iso8601("#{from_date}T00:00:00Z"),
-         {:ok, to, 0} <- DateTime.from_iso8601("#{to_date}T23:59:59Z"),
+         {:ok, from} <- NaiveDateTime.from_iso8601("#{from_date}T00:00:00"),
+         {:ok, to} <- NaiveDateTime.from_iso8601("#{to_date}T23:59:59"),
          sort_by <- Keyword.get(parsed, :sort_by, "start"),
          order <- Keyword.get(parsed, :order, "desc") do
       {
@@ -100,15 +102,15 @@ defmodule Cli.Parse do
 
         with {:ok, task} <- parse_task(parsed[:task]),
              {:ok, start_date} <- parse_date(Keyword.get(parsed, :start_date, "today")),
-             {:ok, start_time} <- parse_time(Keyword.get(parsed, :start_time, "now")),
-             {:ok, duration} <- duration_from_parsed_args(parsed, start_time),
-             {:ok, start, 0} <- DateTime.from_iso8601("#{start_date}T#{start_time}Z") do
+             {:ok, time_type, start_time} <- parse_time(Keyword.get(parsed, :start_time, "now")),
+             {:ok, start_utc} <- from_local_time_zone(start_date, start_time, time_type),
+             {:ok, duration} <- duration_from_parsed_args(parsed, start_utc, start_date) do
           {
             :ok,
             %Api.Task{
               id: UUID.uuid4(),
               task: task,
-              start: start,
+              start: start_utc,
               duration: duration
             }
           }
@@ -119,9 +121,9 @@ defmodule Cli.Parse do
     end
   end
 
-  @spec duration_from_parsed_args([{atom, String.t()}], Time.t()) ::
+  @spec duration_from_parsed_args([{atom, String.t()}], NaiveDateTime.t(), String.t()) ::
           {:ok, integer} | {:error, String.t()}
-  def duration_from_parsed_args(parsed_args, start_time) do
+  def duration_from_parsed_args(parsed_args, start_utc, start_date) do
     cond do
       parsed_args[:duration] ->
         parse_duration(parsed_args[:duration])
@@ -129,28 +131,64 @@ defmodule Cli.Parse do
       parsed_args[:end_time] ->
         day_minutes = 24 * 60
 
-        case parse_time(parsed_args[:end_time]) do
-          {:ok, end_time} ->
-            case Time.compare(
-                   Time.truncate(end_time, :second),
-                   Time.truncate(start_time, :second)
-                 ) do
-              :lt ->
-                {:ok, trunc(Time.diff(end_time, start_time, :second) / 60) + day_minutes}
+        with {:ok, end_time_type, end_time} <- parse_time(parsed_args[:end_time]),
+             {:ok, end_utc} <- from_local_time_zone(start_date, end_time, end_time_type) do
+          case NaiveDateTime.compare(
+                 NaiveDateTime.truncate(end_utc, :second),
+                 NaiveDateTime.truncate(start_utc, :second)
+               ) do
+            :lt ->
+              {:ok, trunc(NaiveDateTime.diff(end_utc, start_utc, :second) / 60) + day_minutes}
 
-              :gt ->
-                {:ok, trunc(Time.diff(end_time, start_time, :second) / 60)}
+            :gt ->
+              {:ok, trunc(NaiveDateTime.diff(end_utc, start_utc, :second) / 60)}
 
-              :eq ->
-                {:error, "The specified start and end times are the same"}
-            end
-
-          {:error, message} ->
-            {:error, "Failed to parse end time: [#{message}]"}
+            :eq ->
+              {:error, "The specified start and end times are the same"}
+          end
         end
 
       true ->
         {:ok, 0}
+    end
+  end
+
+  @spec from_local_time_zone(String.t(), String.t(), atom) ::
+          {:ok, NaiveDateTime.t()} | {:error, String.t()}
+  def from_local_time_zone(date, time, time_type) do
+    case NaiveDateTime.from_iso8601("#{date}T#{time}") do
+      {:ok, time} ->
+        case time_type do
+          :utc ->
+            {:ok, time}
+
+          :local ->
+            dts =
+              time
+              |> NaiveDateTime.to_erl()
+              |> :calendar.local_time_to_universal_time_dst()
+              |> Enum.map(fn dt -> NaiveDateTime.from_erl!(dt) end)
+
+            case dts do
+              [] ->
+                {:error, "Period skipped due to switching to DST"}
+
+              [actual_time] ->
+                {:ok, actual_time}
+
+              [actual_time_dst, actual_time] ->
+                Logger.warn(
+                  "Due to switching from DST, two timestamps for [#{time}] exist; DST timestamp [#{
+                    actual_time_dst
+                  }] is ignored"
+                )
+
+                {:ok, actual_time}
+            end
+        end
+
+      error ->
+        error
     end
   end
 
@@ -210,34 +248,40 @@ defmodule Cli.Parse do
     end
   end
 
-  @spec parse_time(String.t()) :: {:ok, Time.t()} | {:error, String.t()}
+  @spec parse_time(String.t()) ::
+          {:ok, :utc, Time.t()} | {:ok, :local, Time.t()} | {:error, String.t()}
   def parse_time(raw_time) do
     case Regex.run(~r/^(now)([-+])(\d+)([mh])$|^now$/, raw_time) do
       ["now"] ->
-        {:ok, Time.utc_now()}
+        {:ok, :utc, Time.utc_now()}
 
       [_, "now", "+", minutes, "m"] ->
-        {:ok, Time.add(Time.utc_now(), String.to_integer(minutes) * 60, :second)}
+        {:ok, :utc, Time.add(Time.utc_now(), String.to_integer(minutes) * 60, :second)}
 
       [_, "now", "-", minutes, "m"] ->
-        {:ok, Time.add(Time.utc_now(), -String.to_integer(minutes) * 60, :second)}
+        {:ok, :utc, Time.add(Time.utc_now(), -String.to_integer(minutes) * 60, :second)}
 
       [_, "now", "+", hours, "h"] ->
-        {:ok, Time.add(Time.utc_now(), String.to_integer(hours) * 3600, :second)}
+        {:ok, :utc, Time.add(Time.utc_now(), String.to_integer(hours) * 3600, :second)}
 
       [_, "now", "-", hours, "h"] ->
-        {:ok, Time.add(Time.utc_now(), -String.to_integer(hours) * 3600, :second)}
+        {:ok, :utc, Time.add(Time.utc_now(), -String.to_integer(hours) * 3600, :second)}
 
       _ ->
-        case Regex.run(~r/^\d{2}:\d{2}(:\d{2})?/, raw_time) do
-          [time, _] ->
-            Time.from_iso8601(time)
+        parse_result =
+          case Regex.run(~r/^\d{2}:\d{2}(:\d{2})?/, raw_time) do
+            [time, _] ->
+              Time.from_iso8601(time)
 
-          [time] ->
-            Time.from_iso8601("#{time}:00")
+            [time] ->
+              Time.from_iso8601("#{time}:00")
 
-          _ ->
-            {:error, "Invalid time specified: [#{raw_time}]"}
+            _ ->
+              {:error, "Invalid time specified: [#{raw_time}]"}
+          end
+
+        with {:ok, time} <- parse_result do
+          {:ok, :local, time}
         end
     end
   end

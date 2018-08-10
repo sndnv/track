@@ -115,12 +115,12 @@ defmodule Api.Service do
   end
 
   def with_query_filter(stream, query) do
-    from_unix = DateTime.to_unix(query.from)
-    to_unix = DateTime.to_unix(query.to)
+    from_unix = query.from |> DateTime.from_naive!("Etc/UTC") |> DateTime.to_unix()
+    to_unix = query.to |> DateTime.from_naive!("Etc/UTC") |> DateTime.to_unix()
 
     stream
     |> Stream.filter(fn entry ->
-      start_unix = DateTime.to_unix(entry.start)
+      start_unix = entry.start |> DateTime.from_naive!("Etc/UTC") |> DateTime.to_unix()
       from_unix <= start_unix && start_unix <= to_unix
     end)
   end
