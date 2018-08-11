@@ -8,6 +8,19 @@ defmodule Cli.RenderTest do
     assert Cli.Render.get_shell_width(default_shell_width) > 0 == true
   end
 
+  test "converts duration to a formatted string" do
+    assert Cli.Render.duration_to_formatted_string(0) == "0:00"
+    assert Cli.Render.duration_to_formatted_string(1) == "0:01"
+    assert Cli.Render.duration_to_formatted_string(9) == "0:09"
+    assert Cli.Render.duration_to_formatted_string(35) == "0:35"
+    assert Cli.Render.duration_to_formatted_string(59) == "0:59"
+    assert Cli.Render.duration_to_formatted_string(60) == "1:00"
+    assert Cli.Render.duration_to_formatted_string(61) == "1:01"
+    assert Cli.Render.duration_to_formatted_string(121) == "2:01"
+    assert Cli.Render.duration_to_formatted_string(1000) == "16:40"
+    assert Cli.Render.duration_to_formatted_string(-1000) == "16:40"
+  end
+
   test "converts timestamps to string" do
     {:ok, dt} = NaiveDateTime.from_iso8601("2018-12-21T01:02:03")
     assert Cli.Render.naive_date_time_to_string(dt) == "2018-12-21 01:02"
@@ -20,36 +33,89 @@ defmodule Cli.RenderTest do
   end
 
   test "converts a list of tasks to table rows" do
-    tasks = Cli.Fixtures.mock_tasks()
+    day_seconds = 24 * 60 * 60
+    start_time = NaiveDateTime.utc_now()
 
-    expected_rows = [
-      [
-        Enum.at(tasks, 0).id,
-        Enum.at(tasks, 0).task,
-        Cli.Render.naive_date_time_to_string(Enum.at(tasks, 0).start),
-        "#{Enum.at(tasks, 0).duration}m"
-      ],
-      [
-        Enum.at(tasks, 1).id,
-        Enum.at(tasks, 1).task,
-        Cli.Render.naive_date_time_to_string(Enum.at(tasks, 1).start),
-        "#{Enum.at(tasks, 1).duration}m"
-      ],
-      [
-        Enum.at(tasks, 2).id,
-        Enum.at(tasks, 2).task,
-        Cli.Render.naive_date_time_to_string(Enum.at(tasks, 2).start),
-        "#{Enum.at(tasks, 2).duration}m"
-      ]
+    expected_task_1 = %Api.Task{
+      id: UUID.uuid4(),
+      task: "test-task1",
+      start: NaiveDateTime.add(start_time, 10, :second),
+      duration: 60
+    }
+
+    expected_task_2 = %Api.Task{
+      id: UUID.uuid4(),
+      task: "test-task2",
+      start: NaiveDateTime.add(start_time, 1 * day_seconds, :second),
+      duration: 10
+    }
+
+    expected_task_3 = %Api.Task{
+      id: UUID.uuid4(),
+      task: "test-task3",
+      start: NaiveDateTime.add(start_time, -1 * day_seconds, :second),
+      duration: 10
+    }
+
+    expected_task_4 = %Api.Task{
+      id: UUID.uuid4(),
+      task: "test-task4",
+      start: NaiveDateTime.add(start_time, 30 * day_seconds, :second),
+      duration: 20
+    }
+
+    expected_task_5 = %Api.Task{
+      id: UUID.uuid4(),
+      task: "test-task5",
+      start: NaiveDateTime.add(start_time, -30 * day_seconds, :second),
+      duration: 20
+    }
+
+    expected_task_6 = %Api.Task{
+      id: UUID.uuid4(),
+      task: "test-task6",
+      start: NaiveDateTime.add(start_time, 120 * day_seconds, :second),
+      duration: 20
+    }
+
+    expected_task_7 = %Api.Task{
+      id: UUID.uuid4(),
+      task: "test-task7",
+      start: NaiveDateTime.add(start_time, -120 * day_seconds, :second),
+      duration: 20
+    }
+
+    tasks = [
+      expected_task_1,
+      expected_task_2,
+      expected_task_3,
+      expected_task_4,
+      expected_task_5,
+      expected_task_6,
+      expected_task_7
     ]
 
-    assert Cli.Render.to_table_rows(tasks) == expected_rows
+    expected_rows =
+      tasks
+      |> Enum.map(fn task ->
+        [
+          task.id,
+          task.task,
+          Cli.Render.duration_to_formatted_string(task.duration)
+        ]
+      end)
+
+    actual_rows =
+      Cli.Render.to_table_rows(tasks)
+      |> Enum.map(fn [id, task, _, duration] -> [id, task, duration] end)
+
+    assert actual_rows == expected_rows
   end
 
   test "retrieves the current periods" do
     today = Date.utc_today()
 
-    current_day = Date.to_string(today)
+    expected_current_day = Date.to_string(today)
 
     current_week_monday =
       Date.add(
@@ -57,15 +123,20 @@ defmodule Cli.RenderTest do
         -(Calendar.ISO.day_of_week(today.year, today.month, today.day) - 1)
       )
 
-    current_week_days =
+    expected_current_week_days =
       Enum.map(0..6, fn week_day ->
         Date.to_string(Date.add(current_week_monday, week_day))
       end)
 
-    current_month =
+    expected_current_month =
       "#{today.year}-#{today.month |> Integer.to_string() |> String.pad_leading(2, "0")}"
 
-    assert Cli.Render.get_current_periods() == {current_day, current_week_days, current_month}
+    {_, actual_current_day, actual_current_week_days, actual_current_month} =
+      Cli.Render.get_current_periods()
+
+    assert expected_current_day == actual_current_day
+    assert expected_current_week_days == actual_current_week_days
+    assert expected_current_month == actual_current_month
   end
 
   test "calculates the period range of a timestamp" do
@@ -73,21 +144,26 @@ defmodule Cli.RenderTest do
 
     day_seconds = 24 * 60 * 60
 
-    today = NaiveDateTime.utc_now() |> Cli.Render.naive_date_time_to_string()
-    assert Cli.Render.naive_date_time_to_period(today, current_periods) == :current_day
+    today = NaiveDateTime.utc_now()
+    today_string = today |> Cli.Render.naive_date_time_to_string()
+
+    assert Cli.Render.naive_date_time_to_period(today, today_string, current_periods) ==
+             :current_day
 
     today_p1 =
       NaiveDateTime.utc_now()
       |> NaiveDateTime.add(day_seconds, :second)
-      |> Cli.Render.naive_date_time_to_string()
+
+    today_p1_string = today_p1 |> Cli.Render.naive_date_time_to_string()
 
     today_m1 =
       NaiveDateTime.utc_now()
       |> NaiveDateTime.add(-day_seconds, :second)
-      |> Cli.Render.naive_date_time_to_string()
 
-    today_p1 = Cli.Render.naive_date_time_to_period(today_p1, current_periods)
-    today_m1 = Cli.Render.naive_date_time_to_period(today_m1, current_periods)
+    today_m1_string = today_m1 |> Cli.Render.naive_date_time_to_string()
+
+    today_p1 = Cli.Render.naive_date_time_to_period(today_p1, today_p1_string, current_periods)
+    today_m1 = Cli.Render.naive_date_time_to_period(today_m1, today_m1_string, current_periods)
     assert today_p1 == :current_week || today_m1 == :current_week
 
     today = Date.utc_today()
@@ -95,28 +171,48 @@ defmodule Cli.RenderTest do
     current_month =
       "#{today.year}-#{today.month |> Integer.to_string() |> String.pad_leading(2, "0")}"
 
-    current_month_beginning = "#{current_month}-03T00:00:00"
-    current_month_middle = "#{current_month}-15T00:00:00"
-    current_month_end = "#{current_month}-25T00:00:00"
+    current_month_beginning_string = "#{current_month}-03T00:00:00"
+
+    {:ok, current_month_beginning} =
+      current_month_beginning_string |> NaiveDateTime.from_iso8601()
+
+    current_month_middle_string = "#{current_month}-15T00:00:00"
+    {:ok, current_month_middle} = current_month_beginning_string |> NaiveDateTime.from_iso8601()
+
+    current_month_end_string = "#{current_month}-25T00:00:00"
+    {:ok, current_month_end} = current_month_beginning_string |> NaiveDateTime.from_iso8601()
 
     current_month_beginning =
-      Cli.Render.naive_date_time_to_period(current_month_beginning, current_periods)
+      Cli.Render.naive_date_time_to_period(
+        current_month_beginning,
+        current_month_beginning_string,
+        current_periods
+      )
 
     current_month_middle =
-      Cli.Render.naive_date_time_to_period(current_month_middle, current_periods)
+      Cli.Render.naive_date_time_to_period(
+        current_month_middle,
+        current_month_middle_string,
+        current_periods
+      )
 
-    current_month_end = Cli.Render.naive_date_time_to_period(current_month_end, current_periods)
+    current_month_end =
+      Cli.Render.naive_date_time_to_period(
+        current_month_end,
+        current_month_end_string,
+        current_periods
+      )
 
     assert current_month_beginning == :current_month || current_month_middle == :current_month ||
              current_month_end == :current_month
 
     {:ok, past} = NaiveDateTime.from_iso8601("1999-12-21T01:02:03")
-    past = Cli.Render.naive_date_time_to_string(past)
-    assert Cli.Render.naive_date_time_to_period(past, current_periods) == :other
+    past_string = Cli.Render.naive_date_time_to_string(past)
+    assert Cli.Render.naive_date_time_to_period(past, past_string, current_periods) == :past
 
     {:ok, future} = NaiveDateTime.from_iso8601("2999-12-21T01:02:03")
-    future = Cli.Render.naive_date_time_to_string(future)
-    assert Cli.Render.naive_date_time_to_period(future, current_periods) == :other
+    future_string = Cli.Render.naive_date_time_to_string(future)
+    assert Cli.Render.naive_date_time_to_period(future, future_string, current_periods) == :future
   end
 
   test "creates a chart segment for an entry" do
@@ -152,6 +248,8 @@ defmodule Cli.RenderTest do
   end
 
   test "converts aggregated tasks to a bar chart" do
+    day_seconds = 24 * 60 * 60
+
     tasks = Cli.Fixtures.mock_tasks()
 
     expected_task_4 = %Api.Task{
@@ -164,35 +262,57 @@ defmodule Cli.RenderTest do
     expected_task_5 = %Api.Task{
       id: UUID.uuid4(),
       task: "test-task3",
-      start: NaiveDateTime.utc_now() |> NaiveDateTime.add(24 * 60 * 60, :second),
+      start: NaiveDateTime.utc_now() |> NaiveDateTime.add(day_seconds, :second),
       duration: 100
     }
 
     expected_task_6 = %Api.Task{
       id: UUID.uuid4(),
       task: List.duplicate("test", 120) |> Enum.join(),
-      start: NaiveDateTime.utc_now() |> NaiveDateTime.add(-24 * 60 * 60, :second),
+      start: NaiveDateTime.utc_now() |> NaiveDateTime.add(-day_seconds, :second),
       duration: 85
     }
 
     expected_task_7 = %Api.Task{
       id: UUID.uuid4(),
       task: "test-task3",
-      start: NaiveDateTime.utc_now() |> NaiveDateTime.add(10 * 24 * 60 * 60, :second),
+      start: NaiveDateTime.utc_now() |> NaiveDateTime.add(10 * day_seconds, :second),
       duration: 100
     }
 
     expected_task_8 = %Api.Task{
       id: UUID.uuid4(),
       task: List.duplicate("test", 120) |> Enum.join(),
-      start: NaiveDateTime.utc_now() |> NaiveDateTime.add(-10 * 24 * 60 * 60, :second),
+      start: NaiveDateTime.utc_now() |> NaiveDateTime.add(-10 * day_seconds, :second),
+      duration: 85
+    }
+
+    expected_task_9 = %Api.Task{
+      id: UUID.uuid4(),
+      task: List.duplicate("test", 120) |> Enum.join(),
+      start: NaiveDateTime.utc_now() |> NaiveDateTime.add(120 * day_seconds, :second),
+      duration: 85
+    }
+
+    expected_task_10 = %Api.Task{
+      id: UUID.uuid4(),
+      task: List.duplicate("test", 120) |> Enum.join(),
+      start: NaiveDateTime.utc_now() |> NaiveDateTime.add(-120 * day_seconds, :second),
       duration: 85
     }
 
     stream =
       Cli.Fixtures.mock_tasks_stream(
         tasks ++
-          [expected_task_4, expected_task_5, expected_task_6, expected_task_7, expected_task_8]
+          [
+            expected_task_4,
+            expected_task_5,
+            expected_task_6,
+            expected_task_7,
+            expected_task_8,
+            expected_task_9,
+            expected_task_10
+          ]
       )
 
     query = %Api.Query{

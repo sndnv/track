@@ -4,9 +4,8 @@ defmodule Cli.Render do
   def duration_aggregation_as_bar_chart(aggregation) do
     case aggregation do
       [_ | _] ->
-        max_duration_minutes = 120
         default_width = 80
-        duration_label_size = 5
+        duration_label_size = 9
         separator = " | "
         ellipsis = "..."
         block = "▇"
@@ -43,19 +42,8 @@ defmodule Cli.Render do
               end
 
             duration_label =
-              if total_duration < max_duration_minutes do
-                "#{
-                  total_duration
-                  |> Integer.to_string()
-                  |> String.pad_leading(duration_label_size)
-                }m "
-              else
-                "#{
-                  Float.round(total_duration / 60, 1)
-                  |> Float.to_string()
-                  |> String.pad_leading(duration_label_size)
-                }h "
-              end
+              "#{duration_to_formatted_string(total_duration)} "
+              |> String.pad_leading(duration_label_size)
 
             separator_size = String.length(separator)
             labels_size = largest_label_size + String.length(duration_label)
@@ -66,17 +54,22 @@ defmodule Cli.Render do
 
             value =
               entries
-              |> Enum.map(fn entry -> %{entry | start: naive_date_time_to_string(entry.start)} end)
-              |> Enum.sort_by(fn entry -> entry.start end)
-              |> Enum.reverse()
               |> Enum.map(fn entry ->
+                start_string = naive_date_time_to_string(entry.start)
+                period = naive_date_time_to_period(entry.start, start_string, current_periods)
+                {%{entry | start: start_string}, period}
+              end)
+              |> Enum.sort_by(fn {entry, _} -> entry.start end)
+              |> Enum.reverse()
+              |> Enum.map(fn {entry, period} ->
                 entry_blocks = trunc(chart_blocks * entry.duration / total_duration)
 
-                case naive_date_time_to_period(entry.start, current_periods) do
+                case period do
+                  :future -> coloured_entry_chart_segment(block, entry_blocks, :blue)
                   :current_day -> coloured_entry_chart_segment(block, entry_blocks, :green)
                   :current_week -> coloured_entry_chart_segment(block, entry_blocks, :yellow)
                   :current_month -> coloured_entry_chart_segment(block, entry_blocks, :red)
-                  _ -> entry_chart_segment(block, entry_blocks)
+                  :past -> entry_chart_segment(block, entry_blocks)
                 end
               end)
 
@@ -98,21 +91,8 @@ defmodule Cli.Render do
       [_ | _] ->
         table_header = ["ID", "Task", "Start", "Duration"]
 
-        current_periods = get_current_periods()
-
         table =
           TableRex.Table.new(rows, table_header)
-          |> TableRex.Table.put_column_meta(
-            2,
-            color: fn text, value ->
-              case naive_date_time_to_period(value, current_periods) do
-                :current_day -> [:green, text]
-                :current_week -> [:yellow, text]
-                :current_month -> [:red, text]
-                _ -> text
-              end
-            end
-          )
           |> TableRex.Table.put_column_meta(3, align: :right)
           |> TableRex.Table.render!()
 
@@ -134,24 +114,41 @@ defmodule Cli.Render do
     List.duplicate(block, num_blocks)
   end
 
-  def naive_date_time_to_period(dt, {current_day, current_week_days, current_month}) do
-    cond do
-      String.starts_with?(dt, current_day) ->
-        :current_day
+  def to_table_rows(list) do
+    current_periods = get_current_periods()
 
-      Enum.any?(current_week_days, &String.starts_with?(dt, &1)) ->
-        :current_week
+    list
+    |> Enum.map(fn entry ->
+      start_string = naive_date_time_to_string(entry.start)
 
-      String.starts_with?(dt, current_month) ->
-        :current_month
+      date_colour =
+        case naive_date_time_to_period(entry.start, start_string, current_periods) do
+          :future -> {:ok, :blue}
+          :current_day -> {:ok, :green}
+          :current_week -> {:ok, :yellow}
+          :current_month -> {:ok, :red}
+          :past -> :skip
+        end
 
-      true ->
-        :other
-    end
+      start_string =
+        case date_colour do
+          {:ok, colour} -> IO.ANSI.format([colour, start_string], true)
+          :skip -> start_string
+        end
+
+      [
+        entry.id,
+        entry.task,
+        start_string,
+        duration_to_formatted_string(entry.duration)
+      ]
+    end)
   end
 
   def get_current_periods() do
-    today = Date.utc_today()
+    now = NaiveDateTime.utc_now()
+
+    today = NaiveDateTime.to_date(now)
 
     current_day = Date.to_string(today)
 
@@ -169,19 +166,30 @@ defmodule Cli.Render do
     current_month =
       "#{today.year}-#{today.month |> Integer.to_string() |> String.pad_leading(2, "0")}"
 
-    {current_day, current_week_days, current_month}
+    {now, current_day, current_week_days, current_month}
   end
 
-  def to_table_rows(list) do
-    list
-    |> Enum.map(fn entry ->
-      [
-        entry.id,
-        entry.task,
-        naive_date_time_to_string(entry.start),
-        "#{entry.duration}m"
-      ]
-    end)
+  def naive_date_time_to_period(
+        dt,
+        dt_string,
+        {now, current_day, current_week_days, current_month}
+      ) do
+    cond do
+      String.starts_with?(dt_string, current_day) ->
+        :current_day
+
+      NaiveDateTime.compare(dt, now) == :gt ->
+        :future
+
+      Enum.any?(current_week_days, &String.starts_with?(dt_string, &1)) ->
+        :current_week
+
+      String.starts_with?(dt_string, current_month) ->
+        :current_month
+
+      true ->
+        :past
+    end
   end
 
   def naive_date_time_to_string(dt) do
@@ -189,6 +197,13 @@ defmodule Cli.Render do
     hours = dt.hour |> Integer.to_string() |> String.pad_leading(2, "0")
     minutes = dt.minute |> Integer.to_string() |> String.pad_leading(2, "0")
     "#{date} #{hours}:#{minutes}"
+  end
+
+  def duration_to_formatted_string(duration) do
+    duration = abs(duration)
+    hours = div(duration, 60)
+    minutes = (duration - hours * 60) |> Integer.to_string() |> String.pad_leading(2, "0")
+    "#{hours}:#{minutes}"
   end
 
   def get_shell_width(default_width) do
