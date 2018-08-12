@@ -45,6 +45,76 @@ defmodule Api.Service do
     end
   end
 
+  def start_task(task) do
+    case Api.Config.get(Config, :store) do
+      {:ok, store} ->
+        with {:ok, stream} <- Persistence.Store.list(store, Store) do
+          active_tasks =
+            stream
+            |> flatten()
+            |> Aggregate.Tasks.with_no_duration()
+
+          case active_tasks do
+            [active_task | _] ->
+              {:error, "Task [#{active_task.task} / #{active_task.id}] is already active"}
+
+            [] ->
+              task = %Api.Task{
+                id: UUID.uuid4(),
+                task: task,
+                start: NaiveDateTime.utc_now(),
+                duration: 0
+              }
+
+              add_task(task)
+          end
+        end
+
+      :error ->
+        message = "No store is configured"
+        {:error, message}
+    end
+  end
+
+  def stop_task() do
+    case Api.Config.get(Config, :store) do
+      {:ok, store} ->
+        with {:ok, stream} <- Persistence.Store.list(store, Store) do
+          active_tasks =
+            stream
+            |> flatten()
+            |> Aggregate.Tasks.with_no_duration()
+
+          case active_tasks do
+            [active_task | _] ->
+              case remove_task(active_task.id) do
+                :ok ->
+                  task_duration =
+                    NaiveDateTime.diff(NaiveDateTime.utc_now(), active_task.start, :second)
+                    |> div(60)
+
+                  if task_duration > 0 do
+                    updated_task = %{active_task | duration: task_duration}
+                    add_task(updated_task)
+                  else
+                    :ok
+                  end
+
+                error ->
+                  error
+              end
+
+            [] ->
+              {:error, "No active tasks found"}
+          end
+        end
+
+      :error ->
+        message = "No store is configured"
+        {:error, message}
+    end
+  end
+
   def list_tasks(query) do
     case Api.Config.get(Config, :store) do
       {:ok, store} ->

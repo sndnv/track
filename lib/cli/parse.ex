@@ -126,7 +126,13 @@ defmodule Cli.Parse do
   def duration_from_parsed_args(parsed_args, start_utc, start_date) do
     cond do
       parsed_args[:duration] ->
-        parse_duration(parsed_args[:duration])
+        with {:ok, duration} <- parse_duration(parsed_args[:duration]) do
+          if duration > 0 do
+            {:ok, duration}
+          else
+            {:error, "Task duration cannot be [#{duration}]"}
+          end
+        end
 
       parsed_args[:end_time] ->
         day_minutes = 24 * 60
@@ -138,10 +144,10 @@ defmodule Cli.Parse do
                  NaiveDateTime.truncate(start_utc, :second)
                ) do
             :lt ->
-              {:ok, trunc(NaiveDateTime.diff(end_utc, start_utc, :second) / 60) + day_minutes}
+              {:ok, div(NaiveDateTime.diff(end_utc, start_utc, :second), 60) + day_minutes}
 
             :gt ->
-              {:ok, trunc(NaiveDateTime.diff(end_utc, start_utc, :second) / 60)}
+              {:ok, div(NaiveDateTime.diff(end_utc, start_utc, :second), 60)}
 
             :eq ->
               {:error, "The specified start and end times are the same"}
@@ -149,7 +155,7 @@ defmodule Cli.Parse do
         end
 
       true ->
-        {:ok, 0}
+        {:error, "No task duration specified"}
     end
   end
 

@@ -458,12 +458,17 @@ defmodule Cli.ParseTest do
     {:ok, actual_duration} = Parser.duration_from_parsed_args(parsed_args, start_time, start_date)
     assert expected_duration == actual_duration
 
+    parsed_args = [duration: "0m"]
+    {:ok, :utc, start_time} = Parser.parse_time("now+5h")
+    {:ok, start_time} = Parser.from_local_time_zone(start_date, start_time, :utc)
+    {:error, message} = Parser.duration_from_parsed_args(parsed_args, start_time, start_date)
+    assert message == "Task duration cannot be [0]"
+
     parsed_args = []
     {:ok, :utc, start_time} = Parser.parse_time("now+5h")
     {:ok, start_time} = Parser.from_local_time_zone(start_date, start_time, :utc)
-    expected_duration = 0
-    {:ok, actual_duration} = Parser.duration_from_parsed_args(parsed_args, start_time, start_date)
-    assert expected_duration == actual_duration
+    {:error, message} = Parser.duration_from_parsed_args(parsed_args, start_time, start_date)
+    assert message == "No task duration specified"
   end
 
   test "parses arguments into tasks" do

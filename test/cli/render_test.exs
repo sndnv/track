@@ -9,16 +9,20 @@ defmodule Cli.RenderTest do
   end
 
   test "converts duration to a formatted string" do
-    assert Cli.Render.duration_to_formatted_string(0) == "0:00"
-    assert Cli.Render.duration_to_formatted_string(1) == "0:01"
-    assert Cli.Render.duration_to_formatted_string(9) == "0:09"
-    assert Cli.Render.duration_to_formatted_string(35) == "0:35"
-    assert Cli.Render.duration_to_formatted_string(59) == "0:59"
-    assert Cli.Render.duration_to_formatted_string(60) == "1:00"
-    assert Cli.Render.duration_to_formatted_string(61) == "1:01"
-    assert Cli.Render.duration_to_formatted_string(121) == "2:01"
-    assert Cli.Render.duration_to_formatted_string(1000) == "16:40"
-    assert Cli.Render.duration_to_formatted_string(-1000) == "16:40"
+    start = :calendar.local_time() |> NaiveDateTime.from_erl!()
+    assert Cli.Render.duration_to_formatted_string(0, start) == "(A) 0:00"
+
+    start = start |> NaiveDateTime.add(-120, :second)
+    assert Cli.Render.duration_to_formatted_string(0, start) == "(A) 0:02"
+    assert Cli.Render.duration_to_formatted_string(1, start) == "0:01"
+    assert Cli.Render.duration_to_formatted_string(9, start) == "0:09"
+    assert Cli.Render.duration_to_formatted_string(35, start) == "0:35"
+    assert Cli.Render.duration_to_formatted_string(59, start) == "0:59"
+    assert Cli.Render.duration_to_formatted_string(60, start) == "1:00"
+    assert Cli.Render.duration_to_formatted_string(61, start) == "1:01"
+    assert Cli.Render.duration_to_formatted_string(121, start) == "2:01"
+    assert Cli.Render.duration_to_formatted_string(1000, start) == "16:40"
+    assert Cli.Render.duration_to_formatted_string(-1000, start) == "16:40"
   end
 
   test "converts timestamps to string" do
@@ -101,7 +105,7 @@ defmodule Cli.RenderTest do
         [
           task.id,
           task.task,
-          Cli.Render.duration_to_formatted_string(task.duration)
+          Cli.Render.duration_to_formatted_string(task.duration, NaiveDateTime.utc_now())
         ]
       end)
 

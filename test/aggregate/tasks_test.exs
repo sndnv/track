@@ -133,4 +133,26 @@ defmodule Aggregate.TasksTest do
 
     assert actual_aggregation == [{"test-task3", 83}, {"test-task1", 60}, {"test-task2", 10}]
   end
+
+  test "filters all tasks with no duration" do
+    tasks = Cli.Fixtures.mock_tasks()
+
+    expected_task_4 = %Api.Task{
+      id: UUID.uuid4(),
+      task: "test-task3",
+      start: Enum.at(tasks, 0).start,
+      duration: 0
+    }
+
+    expected_task_5 = %Api.Task{
+      id: UUID.uuid4(),
+      task: "test-task3",
+      start: Enum.at(tasks, 0).start,
+      duration: 1
+    }
+
+    stream = Cli.Fixtures.mock_tasks_stream(tasks ++ [expected_task_4, expected_task_5])
+
+    assert Aggregate.Tasks.with_no_duration(stream) == [expected_task_4]
+  end
 end

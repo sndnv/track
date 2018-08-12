@@ -1,6 +1,12 @@
 defmodule Aggregate.Tasks do
   @moduledoc false
 
+  def with_no_duration(stream) do
+    stream
+    |> Stream.filter(fn entry -> entry.duration <= 0 end)
+    |> as_list()
+  end
+
   def with_total_duration(stream, query) do
     result =
       stream

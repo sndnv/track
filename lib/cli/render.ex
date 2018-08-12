@@ -42,7 +42,7 @@ defmodule Cli.Render do
               end
 
             duration_label =
-              "#{duration_to_formatted_string(total_duration)} "
+              "#{duration_to_formatted_string(total_duration, Enum.at(entries, 0).start)} "
               |> String.pad_leading(duration_label_size)
 
             separator_size = String.length(separator)
@@ -62,14 +62,18 @@ defmodule Cli.Render do
               |> Enum.sort_by(fn {entry, _} -> entry.start end)
               |> Enum.reverse()
               |> Enum.map(fn {entry, period} ->
-                entry_blocks = trunc(chart_blocks * entry.duration / total_duration)
+                if total_duration > 0 do
+                  entry_blocks = trunc(chart_blocks * entry.duration / total_duration)
 
-                case period do
-                  :future -> coloured_entry_chart_segment(block, entry_blocks, :blue)
-                  :current_day -> coloured_entry_chart_segment(block, entry_blocks, :green)
-                  :current_week -> coloured_entry_chart_segment(block, entry_blocks, :yellow)
-                  :current_month -> coloured_entry_chart_segment(block, entry_blocks, :red)
-                  :past -> entry_chart_segment(block, entry_blocks)
+                  case period do
+                    :future -> coloured_entry_chart_segment(block, entry_blocks, :blue)
+                    :current_day -> coloured_entry_chart_segment(block, entry_blocks, :green)
+                    :current_week -> coloured_entry_chart_segment(block, entry_blocks, :yellow)
+                    :current_month -> coloured_entry_chart_segment(block, entry_blocks, :red)
+                    :past -> entry_chart_segment(block, entry_blocks)
+                  end
+                else
+                  ""
                 end
               end)
 
@@ -140,7 +144,7 @@ defmodule Cli.Render do
         entry.id,
         entry.task,
         start_string,
-        duration_to_formatted_string(entry.duration)
+        duration_to_formatted_string(entry.duration, entry.start)
       ]
     end)
   end
@@ -199,11 +203,26 @@ defmodule Cli.Render do
     "#{date} #{hours}:#{minutes}"
   end
 
-  def duration_to_formatted_string(duration) do
+  def duration_to_formatted_string(duration, start) do
     duration = abs(duration)
-    hours = div(duration, 60)
-    minutes = (duration - hours * 60) |> Integer.to_string() |> String.pad_leading(2, "0")
-    "#{hours}:#{minutes}"
+
+    if duration > 0 do
+      hours = div(duration, 60)
+      minutes = (duration - hours * 60) |> Integer.to_string() |> String.pad_leading(2, "0")
+      "#{hours}:#{minutes}"
+    else
+      local_now = :calendar.local_time() |> NaiveDateTime.from_erl!()
+
+      expected_duration =
+        NaiveDateTime.diff(local_now, start, :second)
+        |> div(60)
+
+      if expected_duration > 0 do
+        "(A) #{duration_to_formatted_string(expected_duration, start)}"
+      else
+        "(A) 0:00"
+      end
+    end
   end
 
   def get_shell_width(default_width) do
