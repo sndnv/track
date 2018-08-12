@@ -219,6 +219,14 @@ defmodule Cli.RenderTest do
     assert Cli.Render.naive_date_time_to_period(future, future_string, current_periods) == :future
   end
 
+  test "converts time periods to colours for charts" do
+    assert Cli.Render.period_to_colour(:future) == :blue
+    assert Cli.Render.period_to_colour(:current_day) == :green
+    assert Cli.Render.period_to_colour(:current_week) == :yellow
+    assert Cli.Render.period_to_colour(:current_month) == :red
+    assert Cli.Render.period_to_colour(:past) == :default
+  end
+
   test "creates a chart segment for an entry" do
     assert Cli.Render.entry_chart_segment("+", 3) == ["+", "+", "+"]
     assert Cli.Render.entry_chart_segment("+", 4) == ["+", "+", "+", "+"]
@@ -227,6 +235,43 @@ defmodule Cli.RenderTest do
     assert Cli.Render.coloured_entry_chart_segment("+", 3, :red) == [
              [[[[[] | "\e[31m"], "+"], "+"], "+"] | "\e[0m"
            ]
+  end
+
+  test "generates a bar chart" do
+    header = [label: "TestLabel", value_label: "TestValue"]
+    footer = [label: "Test Footer"]
+
+    rows = [
+      {"test-label-#1", 120, "__120 ", [{20, :red}, {75, :yellow}, {25, :default}]},
+      {"test-label-#2", 50, "--50 ", [{35, :cyan}, {5, :default}, {5, :default}, {5, :default}]},
+      {"test-label-#3", 15, "15 ", [{15, :green}]}
+    ]
+
+    expected_chart = [
+      "TestLabel     | TestValue",
+      "------------- + ---------",
+      "test-label-#1 | __120 \e[31m▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇\e[0m\e[33m▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇\e[0m▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇",
+      "test-label-#2 |  --50 \e[36m▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇\e[0m▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇",
+      "test-label-#3 |    15 \e[32m▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇\e[0m",
+      "------------- + ---------",
+      "Test Footer"
+    ]
+
+    actual_chart = Cli.Render.bar_chart(header, rows, footer) |> String.split("\n")
+
+    assert actual_chart == expected_chart
+  end
+
+  test "generates the period-colour legend" do
+    expected_legend = [
+      " \e[32m▇\e[0m -> Today's tasks",
+      " \e[33m▇\e[0m -> This week's tasks",
+      " \e[31m▇\e[0m -> This month's tasks",
+      " \e[34m▇\e[0m -> Future tasks",
+      " ▇ -> Older tasks"
+    ]
+
+    assert Cli.Render.period_colour_legend() == expected_legend
   end
 
   test "converts a stream of tasks to a table" do
@@ -243,8 +288,7 @@ defmodule Cli.RenderTest do
     table_footer_size = 1
     expected_table_size = table_header_size + length(tasks) + table_footer_size
 
-    {:ok, actual_table} =
-      stream |> Aggregate.Tasks.as_sorted_list(query) |> Cli.Render.list_as_table()
+    {:ok, actual_table} = stream |> Aggregate.Tasks.as_sorted_list(query) |> Cli.Render.table()
 
     actual_table_size = actual_table |> String.split("\n", trim: true) |> length()
 
@@ -325,14 +369,16 @@ defmodule Cli.RenderTest do
       sort_by: "task"
     }
 
-    chart_header_size = 1
+    chart_header_size = 2
+    chart_footer_size = 2
     expected_aggregated_tasks = 4
-    expected_chart_size = expected_aggregated_tasks + chart_header_size
+
+    expected_chart_size = expected_aggregated_tasks + chart_header_size + chart_footer_size
 
     {:ok, actual_chart} =
       stream
       |> Aggregate.Tasks.with_total_duration(query)
-      |> Cli.Render.duration_aggregation_as_bar_chart()
+      |> Cli.Render.duration_aggregation_as_bar_chart(query)
 
     actual_chart_size = actual_chart |> String.split("\n", trim: true) |> length()
 
