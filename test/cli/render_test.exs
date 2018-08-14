@@ -216,6 +216,25 @@ defmodule Cli.RenderTest do
     assert Cli.Render.period_colour_legend() == expected_legend
   end
 
+  test "generates group data from period data" do
+    current_periods = Cli.Render.get_current_periods()
+
+    {:ok, expected_group_start} = NaiveDateTime.from_iso8601("1999-12-21T00:00:00")
+    expected_data = {:default, expected_group_start}
+    actual_data = Cli.Render.group_data_from_period_data(:day, "1999-12-21", current_periods)
+    assert expected_data == actual_data
+
+    {:ok, expected_group_start} = NaiveDateTime.from_iso8601("1999-12-21T00:00:00")
+    expected_data = {:default, expected_group_start}
+    actual_data = Cli.Render.group_data_from_period_data(:week, "1999-12-21", current_periods)
+    assert expected_data == actual_data
+
+    {:ok, expected_group_start} = NaiveDateTime.from_iso8601("1999-12-01T00:00:00")
+    expected_data = {:default, expected_group_start}
+    actual_data = Cli.Render.group_data_from_period_data(:month, "1999-12", current_periods)
+    assert expected_data == actual_data
+  end
+
   test "converts a stream of tasks to a table" do
     tasks = Cli.Fixtures.mock_tasks()
     stream = Cli.Fixtures.mock_tasks_stream(tasks)
@@ -329,7 +348,7 @@ defmodule Cli.RenderTest do
     assert actual_chart_size == expected_chart_size
   end
 
-  test "converts tasks grouped by day to a bar chart" do
+  test "converts tasks grouped by period to a bar chart" do
     day_minutes = 24 * 60
     day_seconds = day_minutes * 60
 
@@ -384,8 +403,80 @@ defmodule Cli.RenderTest do
 
     {:ok, actual_chart} =
       stream
-      |> Aggregate.Tasks.per_day(query)
-      |> Cli.Render.daily_aggregation_as_bar_chart(query)
+      |> Aggregate.Tasks.per_period(query, :day)
+      |> Cli.Render.period_aggregation_as_bar_chart(query, :day)
+
+    actual_chart_size = actual_chart |> String.split("\n", trim: true) |> length()
+
+    assert actual_chart_size == expected_chart_size
+
+    expected_task_7 = %Api.Task{
+      id: UUID.uuid4(),
+      task: List.duplicate("test", 120) |> Enum.join(),
+      start: NaiveDateTime.utc_now() |> NaiveDateTime.add(7 * day_seconds, :second),
+      duration: 3 * day_minutes
+    }
+
+    stream =
+      Cli.Fixtures.mock_tasks_stream(
+        tasks ++
+          [
+            expected_task_4,
+            expected_task_5,
+            expected_task_6,
+            expected_task_7
+          ]
+      )
+
+    chart_header_size = 2
+    chart_footer_size = 2
+    # 3 tasks on the same day (from mock_tasks()) (1)
+    # + 1 task for current week (from tasks 4, 5 and 6) (1)
+    # + 1 task for next week (from task 7) (1)
+    expected_aggregated_tasks = 3
+
+    expected_chart_size = expected_aggregated_tasks + chart_header_size + chart_footer_size
+
+    {:ok, actual_chart} =
+      stream
+      |> Aggregate.Tasks.per_period(query, :week)
+      |> Cli.Render.period_aggregation_as_bar_chart(query, :week)
+
+    actual_chart_size = actual_chart |> String.split("\n", trim: true) |> length()
+
+    assert actual_chart_size == expected_chart_size
+
+    expected_task_7 = %Api.Task{
+      id: UUID.uuid4(),
+      task: List.duplicate("test", 120) |> Enum.join(),
+      start: NaiveDateTime.utc_now() |> NaiveDateTime.add(31 * day_seconds, :second),
+      duration: 3 * day_minutes
+    }
+
+    stream =
+      Cli.Fixtures.mock_tasks_stream(
+        tasks ++
+          [
+            expected_task_4,
+            expected_task_5,
+            expected_task_6,
+            expected_task_7
+          ]
+      )
+
+    chart_header_size = 2
+    chart_footer_size = 2
+    # 3 tasks on the same day (from mock_tasks()) (1)
+    # + 1 task for current week (from tasks 4, 5 and 6) (1)
+    # + 1 task for next month (from task 7) (1)
+    expected_aggregated_tasks = 3
+
+    expected_chart_size = expected_aggregated_tasks + chart_header_size + chart_footer_size
+
+    {:ok, actual_chart} =
+      stream
+      |> Aggregate.Tasks.per_period(query, :month)
+      |> Cli.Render.period_aggregation_as_bar_chart(query, :month)
 
     actual_chart_size = actual_chart |> String.split("\n", trim: true) |> length()
 

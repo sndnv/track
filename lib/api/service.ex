@@ -153,7 +153,7 @@ defmodule Api.Service do
     end
   end
 
-  def get_daily_aggregation(query) do
+  def get_period_aggregation(query, period) do
     case Api.Config.get(Config, :store) do
       {:ok, store} ->
         with {:ok, stream} <- Persistence.Store.list(store, Store) do
@@ -162,7 +162,7 @@ defmodule Api.Service do
             stream
             |> flatten()
             |> with_query_filter(query)
-            |> Aggregate.Tasks.per_day(query)
+            |> Aggregate.Tasks.per_period(query, period)
           }
         end
 

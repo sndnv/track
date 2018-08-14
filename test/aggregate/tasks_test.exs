@@ -156,7 +156,7 @@ defmodule Aggregate.TasksTest do
     assert Aggregate.Tasks.with_no_duration(stream) == [expected_task_4]
   end
 
-  test "aggregates a stream of tasks to list of tasks per day" do
+  test "aggregates a stream of tasks to list of tasks per period" do
     day_seconds = 24 * 60 * 60
 
     tasks = Cli.Fixtures.mock_tasks()
@@ -209,7 +209,7 @@ defmodule Aggregate.TasksTest do
     }
 
     actual_aggregation =
-      Aggregate.Tasks.per_day(stream, query)
+      Aggregate.Tasks.per_period(stream, query, :day)
       |> Enum.map(fn {date, duration, entries} ->
         {date, duration, entries |> Enum.map(fn entry -> entry.id end)}
       end)
@@ -234,7 +234,7 @@ defmodule Aggregate.TasksTest do
     }
 
     actual_aggregation =
-      Aggregate.Tasks.per_day(stream, query)
+      Aggregate.Tasks.per_period(stream, query, :day)
       |> Enum.map(fn {date, duration, entries} ->
         {date, duration, entries |> Enum.map(fn entry -> entry.id end)}
       end)
@@ -249,7 +249,7 @@ defmodule Aggregate.TasksTest do
     }
 
     actual_aggregation =
-      Aggregate.Tasks.per_day(stream, query)
+      Aggregate.Tasks.per_period(stream, query, :day)
       |> Enum.map(fn {date, duration, entries} ->
         {date, duration, entries |> Enum.map(fn entry -> entry.id end)}
       end)
@@ -264,5 +264,64 @@ defmodule Aggregate.TasksTest do
     ]
 
     assert actual_aggregation == expected_aggregation
+
+    query = %Api.Query{
+      from: Enum.at(tasks, 0).start,
+      to: Enum.at(tasks, 0).start,
+      sort_by: "start",
+      order: "desc"
+    }
+
+    actual_aggregation =
+      Aggregate.Tasks.per_period(stream, query, :week)
+      |> Enum.map(fn {date, duration, entries} ->
+        {date, duration, entries |> Enum.map(fn entry -> entry.id end)}
+      end)
+
+    expected_aggregation = [
+      {task_6_start_date_p1 |> monday_of_date, 3 * 24 * 60,
+       [expected_task_6.id, expected_task_6.id, expected_task_6.id]},
+      {task_5_start_date |> monday_of_date, 18, [expected_task_5.id]},
+      {tasks_start_date |> monday_of_date, 135,
+       (tasks |> Enum.map(fn entry -> entry.id end)) ++ [expected_task_4.id]}
+    ]
+
+    assert actual_aggregation == expected_aggregation
+
+    query = %Api.Query{
+      from: Enum.at(tasks, 0).start,
+      to: Enum.at(tasks, 0).start,
+      sort_by: "start",
+      order: "desc"
+    }
+
+    actual_aggregation =
+      Aggregate.Tasks.per_period(stream, query, :month)
+      |> Enum.map(fn {date, duration, entries} ->
+        {date, duration, entries |> Enum.map(fn entry -> entry.id end)}
+      end)
+
+    expected_aggregation = [
+      {task_6_start_date_p3 |> month_of_date(), 3 * 24 * 60,
+       [expected_task_6.id, expected_task_6.id, expected_task_6.id]},
+      {tasks_start_date |> month_of_date(), 153,
+       (tasks |> Enum.map(fn entry -> entry.id end)) ++ [expected_task_4.id, expected_task_5.id]}
+    ]
+
+    assert actual_aggregation == expected_aggregation
+  end
+
+  defp monday_of_date(date) do
+    week_monday =
+      Date.add(
+        date,
+        -(Calendar.ISO.day_of_week(date.year, date.month, date.day) - 1)
+      )
+
+    week_monday |> Date.to_string()
+  end
+
+  defp month_of_date(date) do
+    "#{date.year}-#{date.month |> Integer.to_string() |> String.pad_leading(2, "0")}"
   end
 end

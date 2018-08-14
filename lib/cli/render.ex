@@ -5,18 +5,29 @@ defmodule Cli.Render do
   @bar_chart_empty_block "-"
   @bar_chart_ellipsis "..."
   @day_minutes 24 * 60
+  @week_mintues 7 * @day_minutes
+  @month_mintues 31 * @day_minutes
 
-  def daily_aggregation_as_bar_chart(aggregation, query) do
+  def period_aggregation_as_bar_chart(aggregation, query, group_period) do
     case aggregation do
       [_ | _] ->
         current_periods = get_current_periods()
 
-        header = [label: "Start Date", value_label: "Duration"]
+        {total_minutes, header_label, footer_label} =
+          case group_period do
+            :day -> {@day_minutes, "Day", "Daily"}
+            :week -> {@week_mintues, "Week", "Weekly"}
+            :month -> {@month_mintues, "Month", "Monthly"}
+          end
 
-        footer = [label: "Daily task distribution between [#{query.from}] and [#{query.to}]"]
+        header = [label: header_label, value_label: "Duration"]
+
+        footer = [
+          label: "#{footer_label} task distribution between [#{query.from}] and [#{query.to}]"
+        ]
 
         minutes =
-          1..@day_minutes
+          1..total_minutes
           |> Enum.map(fn minute ->
             {minute, :empty}
           end)
@@ -24,24 +35,20 @@ defmodule Cli.Render do
 
         rows =
           aggregation
-          |> Enum.map(fn {start_day, total_duration, entries} ->
+          |> Enum.map(fn {start_period, total_duration, entries} ->
             formatted_total_duration =
               "#{duration_to_formatted_string(total_duration, Enum.at(entries, 0).start)} "
 
-            day_string = "#{start_day}T00:00:00"
-            {:ok, day} = NaiveDateTime.from_iso8601(day_string)
-
-            colour =
-              naive_date_time_to_period(day, day_string, current_periods)
-              |> period_to_colour()
+            {group_colour, group_start} =
+              group_data_from_period_data(group_period, start_period, current_periods)
 
             entries =
               entries
               |> Enum.flat_map(fn entry ->
-                offset = div(NaiveDateTime.diff(entry.start, day, :second), 60)
+                offset = div(NaiveDateTime.diff(entry.start, group_start, :second), 60)
 
                 offset..(offset + entry.duration - 1)
-                |> Enum.map(fn minute -> {minute + 1, colour} end)
+                |> Enum.map(fn minute -> {minute + 1, group_colour} end)
               end)
               |> Enum.into(%{})
 
@@ -49,13 +56,13 @@ defmodule Cli.Render do
               Map.merge(minutes, entries)
               |> Enum.sort_by(fn {minute, _} -> minute end)
               |> Enum.reverse()
-              |> Enum.reduce(%{}, fn {_, colour}, acc ->
+              |> Enum.reduce(%{}, fn {_, group_colour}, acc ->
                 block_id = max(Map.size(acc) - 1, 0)
 
                 block_op =
-                  case Map.get(acc, block_id, {0, colour}) do
-                    {block_size, ^colour} -> {:update, {block_size + 1, colour}}
-                    _ -> {:add, {1, colour}}
+                  case Map.get(acc, block_id, {0, group_colour}) do
+                    {block_size, ^group_colour} -> {:update, {block_size + 1, group_colour}}
+                    _ -> {:add, {1, group_colour}}
                   end
 
                 case block_op do
@@ -65,7 +72,7 @@ defmodule Cli.Render do
               end)
               |> Enum.map(fn {_, entry} -> entry end)
 
-            {start_day, @day_minutes, formatted_total_duration, entries}
+            {start_period, total_minutes, formatted_total_duration, entries}
           end)
 
         {:ok, bar_chart(header, rows, footer)}
@@ -132,6 +139,47 @@ defmodule Cli.Render do
 
       [] ->
         {:error, "No data"}
+    end
+  end
+
+  def group_data_from_period_data(group_period, start_period, current_periods) do
+    case group_period do
+      :day ->
+        day_string = "#{start_period}T00:00:00"
+        {:ok, day} = NaiveDateTime.from_iso8601(day_string)
+
+        day_period = naive_date_time_to_period(day, day_string, current_periods)
+
+        {day_period |> period_to_colour(), day}
+
+      :week ->
+        day_string = "#{start_period}T00:00:00"
+        {:ok, day} = NaiveDateTime.from_iso8601(day_string)
+
+        day_period = naive_date_time_to_period(day, day_string, current_periods)
+
+        day_period =
+          case day_period do
+            :current_day -> :current_week
+            other -> other
+          end
+
+        {day_period |> period_to_colour(), day}
+
+      :month ->
+        day_string = "#{start_period}-01T00:00:00"
+        {:ok, day} = NaiveDateTime.from_iso8601(day_string)
+
+        day_period = naive_date_time_to_period(day, day_string, current_periods)
+
+        day_period =
+          case day_period do
+            :current_day -> :current_month
+            :current_week -> :current_month
+            other -> other
+          end
+
+        {day_period |> period_to_colour(), day}
     end
   end
 

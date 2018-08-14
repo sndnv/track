@@ -3,7 +3,7 @@ defmodule Aggregate.Tasks do
 
   @day_seconds 24 * 60 * 60
 
-  def per_day(stream, query) do
+  def per_period(stream, query, for_period) do
     result =
       stream
       |> with_local_time_zone()
@@ -29,7 +29,7 @@ defmodule Aggregate.Tasks do
           {result, _} =
             0..div(remaining_entry_seconds, @day_seconds)
             |> Enum.reduce(
-              {[{current_day_task, start_day_string}], remaining_entry_seconds},
+              {[{current_day_task, start_day}], remaining_entry_seconds},
               fn day_number, {new_entries, remaining_seconds} ->
                 new_entry_day = start_day |> Date.add(day_number + 1)
                 new_entry_day_string = new_entry_day |> Date.to_string()
@@ -51,7 +51,7 @@ defmodule Aggregate.Tasks do
                 }
 
                 {
-                  [{new_entry, new_entry_day_string} | new_entries],
+                  [{new_entry, new_entry_day} | new_entries],
                   remaining_seconds - new_entry_duration
                 }
               end
@@ -59,20 +59,43 @@ defmodule Aggregate.Tasks do
 
           result |> Enum.filter(fn {entry, _} -> entry.duration > 0 end)
         else
-          [{entry, start_day_string}]
+          [{entry, start_day}]
         end
       end)
       |> as_list()
-      |> Enum.group_by(fn {_, start_day} -> start_day end)
-      |> Enum.map(fn {start_day, entries} ->
-        entries = entries |> Enum.map(fn {entry, _} -> entry end)
-        {start_day, entries |> Enum.reduce(0, fn entry, acc -> acc + entry.duration end), entries}
+      |> Enum.map(fn {entry, start_day} ->
+        period =
+          case for_period do
+            :day ->
+              start_day |> Date.to_string()
+
+            :week ->
+              week_monday =
+                Date.add(
+                  start_day,
+                  -(Calendar.ISO.day_of_week(start_day.year, start_day.month, start_day.day) - 1)
+                )
+
+              week_monday |> Date.to_string()
+
+            :month ->
+              "#{start_day.year}-#{
+                start_day.month |> Integer.to_string() |> String.pad_leading(2, "0")
+              }"
+          end
+
+        {entry, period}
       end)
-      |> Enum.sort_by(fn {start_day, duration, _} ->
+      |> Enum.group_by(fn {_, period} -> period end)
+      |> Enum.map(fn {period, entries} ->
+        entries = entries |> Enum.map(fn {entry, _} -> entry end)
+        {period, entries |> Enum.reduce(0, fn entry, acc -> acc + entry.duration end), entries}
+      end)
+      |> Enum.sort_by(fn {period, duration, _} ->
         case query.sort_by do
-          "task" -> start_day
+          "task" -> period
           "duration" -> duration
-          "start" -> start_day
+          "start" -> period
         end
       end)
 
