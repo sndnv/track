@@ -4,6 +4,7 @@ defmodule Cli.Parse do
   require Logger
 
   @application_options [verbose: :boolean, config: :string]
+  @day_minutes 24 * 60
 
   @spec extract_application_options([String.to()]) :: {[{atom, term}], [String.t()]}
   def extract_application_options(args) do
@@ -135,8 +136,6 @@ defmodule Cli.Parse do
         end
 
       parsed_args[:end_time] ->
-        day_minutes = 24 * 60
-
         with {:ok, end_time_type, end_time} <- parse_time(parsed_args[:end_time]),
              {:ok, end_utc} <- from_local_time_zone(start_date, end_time, end_time_type) do
           case NaiveDateTime.compare(
@@ -144,7 +143,7 @@ defmodule Cli.Parse do
                  NaiveDateTime.truncate(start_utc, :second)
                ) do
             :lt ->
-              {:ok, div(NaiveDateTime.diff(end_utc, start_utc, :second), 60) + day_minutes}
+              {:ok, div(NaiveDateTime.diff(end_utc, start_utc, :second), 60) + @day_minutes}
 
             :gt ->
               {:ok, div(NaiveDateTime.diff(end_utc, start_utc, :second), 60)}

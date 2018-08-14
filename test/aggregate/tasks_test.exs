@@ -155,4 +155,114 @@ defmodule Aggregate.TasksTest do
 
     assert Aggregate.Tasks.with_no_duration(stream) == [expected_task_4]
   end
+
+  test "aggregates a stream of tasks to list of tasks per day" do
+    day_seconds = 24 * 60 * 60
+
+    tasks = Cli.Fixtures.mock_tasks()
+    tasks_start_date = Enum.at(tasks, 0).start |> NaiveDateTime.to_date()
+
+    task_4_start_date = tasks_start_date |> Date.add(2)
+
+    expected_task_4 = %Api.Task{
+      id: UUID.uuid4(),
+      task: "test-task3",
+      start: Enum.at(tasks, 0).start |> NaiveDateTime.add(2 * day_seconds, :second),
+      duration: 45
+    }
+
+    task_5_start_date = tasks_start_date |> Date.add(5)
+
+    expected_task_5 = %Api.Task{
+      id: UUID.uuid4(),
+      task: "test-task3",
+      start: Enum.at(tasks, 0).start |> NaiveDateTime.add(5 * day_seconds, :second),
+      duration: 18
+    }
+
+    {:ok, task_6_start_date_p1} = NaiveDateTime.from_iso8601("2020-10-20T00:00:00")
+
+    [task_6_start_date] =
+      task_6_start_date_p1
+      |> NaiveDateTime.to_erl()
+      |> :calendar.local_time_to_universal_time_dst()
+      |> Enum.map(fn dt -> NaiveDateTime.from_erl!(dt) end)
+
+    task_6_start_date_p2 = task_6_start_date_p1 |> Date.add(1)
+    task_6_start_date_p3 = task_6_start_date_p1 |> Date.add(2)
+
+    expected_task_6 = %Api.Task{
+      id: UUID.uuid4(),
+      task: "test-task6",
+      start: task_6_start_date,
+      duration: 3 * 24 * 60
+    }
+
+    stream =
+      Cli.Fixtures.mock_tasks_stream(tasks ++ [expected_task_4, expected_task_5, expected_task_6])
+
+    query = %Api.Query{
+      from: Enum.at(tasks, 0).start,
+      to: Enum.at(tasks, 0).start,
+      sort_by: "start",
+      order: "desc"
+    }
+
+    actual_aggregation =
+      Aggregate.Tasks.per_day(stream, query)
+      |> Enum.map(fn {date, duration, entries} ->
+        {date, duration, entries |> Enum.map(fn entry -> entry.id end)}
+      end)
+
+    expected_aggregation = [
+      {task_6_start_date_p3 |> Date.to_string(), 24 * 60, [expected_task_6.id]},
+      {task_6_start_date_p2 |> Date.to_string(), 24 * 60, [expected_task_6.id]},
+      {task_6_start_date_p1 |> Date.to_string(), 24 * 60, [expected_task_6.id]},
+      {task_5_start_date |> Date.to_string(), 18, [expected_task_5.id]},
+      {task_4_start_date |> Date.to_string(), 45, [expected_task_4.id]},
+      {tasks_start_date |> Date.to_string(), 90, tasks |> Enum.map(fn entry -> entry.id end)}
+    ]
+
+    assert actual_aggregation == expected_aggregation
+
+    # sorting by task is not supported; defaults to sorting by start date
+    query = %Api.Query{
+      from: Enum.at(tasks, 0).start,
+      to: Enum.at(tasks, 0).start,
+      sort_by: "task",
+      order: "asc"
+    }
+
+    actual_aggregation =
+      Aggregate.Tasks.per_day(stream, query)
+      |> Enum.map(fn {date, duration, entries} ->
+        {date, duration, entries |> Enum.map(fn entry -> entry.id end)}
+      end)
+
+    assert actual_aggregation == expected_aggregation |> Enum.reverse()
+
+    query = %Api.Query{
+      from: Enum.at(tasks, 0).start,
+      to: Enum.at(tasks, 0).start,
+      sort_by: "duration",
+      order: "asc"
+    }
+
+    actual_aggregation =
+      Aggregate.Tasks.per_day(stream, query)
+      |> Enum.map(fn {date, duration, entries} ->
+        {date, duration, entries |> Enum.map(fn entry -> entry.id end)}
+      end)
+
+    expected_aggregation = [
+      {task_5_start_date |> Date.to_string(), 18, [expected_task_5.id]},
+      {task_4_start_date |> Date.to_string(), 45, [expected_task_4.id]},
+      {tasks_start_date |> Date.to_string(), 90, tasks |> Enum.map(fn entry -> entry.id end)},
+      {task_6_start_date_p1 |> Date.to_string(), 24 * 60, [expected_task_6.id]},
+      {task_6_start_date_p2 |> Date.to_string(), 24 * 60, [expected_task_6.id]},
+      {task_6_start_date_p3 |> Date.to_string(), 24 * 60, [expected_task_6.id]}
+    ]
+
+    assert actual_aggregation == expected_aggregation
+  end
 end

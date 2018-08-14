@@ -146,69 +146,11 @@ defmodule Cli.RenderTest do
   test "calculates the period range of a timestamp" do
     current_periods = Cli.Render.get_current_periods()
 
-    day_seconds = 24 * 60 * 60
-
     today = NaiveDateTime.utc_now()
     today_string = today |> Cli.Render.naive_date_time_to_string()
 
     assert Cli.Render.naive_date_time_to_period(today, today_string, current_periods) ==
              :current_day
-
-    today_p1 =
-      NaiveDateTime.utc_now()
-      |> NaiveDateTime.add(day_seconds, :second)
-
-    today_p1_string = today_p1 |> Cli.Render.naive_date_time_to_string()
-
-    today_m1 =
-      NaiveDateTime.utc_now()
-      |> NaiveDateTime.add(-day_seconds, :second)
-
-    today_m1_string = today_m1 |> Cli.Render.naive_date_time_to_string()
-
-    today_p1 = Cli.Render.naive_date_time_to_period(today_p1, today_p1_string, current_periods)
-    today_m1 = Cli.Render.naive_date_time_to_period(today_m1, today_m1_string, current_periods)
-    assert today_p1 == :current_week || today_m1 == :current_week
-
-    today = Date.utc_today()
-
-    current_month =
-      "#{today.year}-#{today.month |> Integer.to_string() |> String.pad_leading(2, "0")}"
-
-    current_month_beginning_string = "#{current_month}-03T00:00:00"
-
-    {:ok, current_month_beginning} =
-      current_month_beginning_string |> NaiveDateTime.from_iso8601()
-
-    current_month_middle_string = "#{current_month}-15T00:00:00"
-    {:ok, current_month_middle} = current_month_beginning_string |> NaiveDateTime.from_iso8601()
-
-    current_month_end_string = "#{current_month}-25T00:00:00"
-    {:ok, current_month_end} = current_month_beginning_string |> NaiveDateTime.from_iso8601()
-
-    current_month_beginning =
-      Cli.Render.naive_date_time_to_period(
-        current_month_beginning,
-        current_month_beginning_string,
-        current_periods
-      )
-
-    current_month_middle =
-      Cli.Render.naive_date_time_to_period(
-        current_month_middle,
-        current_month_middle_string,
-        current_periods
-      )
-
-    current_month_end =
-      Cli.Render.naive_date_time_to_period(
-        current_month_end,
-        current_month_end_string,
-        current_periods
-      )
-
-    assert current_month_beginning == :current_month || current_month_middle == :current_month ||
-             current_month_end == :current_month
 
     {:ok, past} = NaiveDateTime.from_iso8601("1999-12-21T01:02:03")
     past_string = Cli.Render.naive_date_time_to_string(past)
@@ -250,8 +192,8 @@ defmodule Cli.RenderTest do
     expected_chart = [
       "TestLabel     | TestValue",
       "------------- + ---------",
-      "test-label-#1 | __120 \e[31m▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇\e[0m\e[33m▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇\e[0m▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇",
-      "test-label-#2 |  --50 \e[36m▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇\e[0m▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇",
+      "test-label-#1 | __120 ▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇\e[33m▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇\e[0m\e[31m▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇\e[0m",
+      "test-label-#2 |  --50 ▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇\e[36m▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇\e[0m",
       "test-label-#3 |    15 \e[32m▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇\e[0m",
       "------------- + ---------",
       "Test Footer"
@@ -281,7 +223,8 @@ defmodule Cli.RenderTest do
     query = %Api.Query{
       from: Enum.at(tasks, 0).start,
       to: Enum.at(tasks, 0).start,
-      sort_by: "task"
+      sort_by: "task",
+      order: "asc"
     }
 
     table_header_size = 3
@@ -295,7 +238,7 @@ defmodule Cli.RenderTest do
     assert actual_table_size == expected_table_size
   end
 
-  test "converts aggregated tasks to a bar chart" do
+  test "converts tasks grouped by duration to a bar chart" do
     day_seconds = 24 * 60 * 60
 
     tasks = Cli.Fixtures.mock_tasks()
@@ -366,7 +309,8 @@ defmodule Cli.RenderTest do
     query = %Api.Query{
       from: Enum.at(tasks, 0).start,
       to: Enum.at(tasks, 0).start,
-      sort_by: "task"
+      sort_by: "task",
+      order: "asc"
     }
 
     chart_header_size = 2
@@ -379,6 +323,69 @@ defmodule Cli.RenderTest do
       stream
       |> Aggregate.Tasks.with_total_duration(query)
       |> Cli.Render.duration_aggregation_as_bar_chart(query)
+
+    actual_chart_size = actual_chart |> String.split("\n", trim: true) |> length()
+
+    assert actual_chart_size == expected_chart_size
+  end
+
+  test "converts tasks grouped by day to a bar chart" do
+    day_minutes = 24 * 60
+    day_seconds = day_minutes * 60
+
+    tasks = Cli.Fixtures.mock_tasks()
+
+    expected_task_4 = %Api.Task{
+      id: UUID.uuid4(),
+      task: "test-task3",
+      start: NaiveDateTime.utc_now(),
+      duration: 45
+    }
+
+    expected_task_5 = %Api.Task{
+      id: UUID.uuid4(),
+      task: "test-task3",
+      start: NaiveDateTime.utc_now() |> NaiveDateTime.add(-day_seconds, :second),
+      duration: 100
+    }
+
+    expected_task_6 = %Api.Task{
+      id: UUID.uuid4(),
+      task: List.duplicate("test", 120) |> Enum.join(),
+      start: NaiveDateTime.utc_now() |> NaiveDateTime.add(day_seconds, :second),
+      duration: 3 * day_minutes
+    }
+
+    stream =
+      Cli.Fixtures.mock_tasks_stream(
+        tasks ++
+          [
+            expected_task_4,
+            expected_task_5,
+            expected_task_6
+          ]
+      )
+
+    query = %Api.Query{
+      from: Enum.at(tasks, 0).start,
+      to: Enum.at(tasks, 0).start,
+      sort_by: "task",
+      order: "asc"
+    }
+
+    chart_header_size = 2
+    chart_footer_size = 2
+    # 3 tasks on the same day (from mock_tasks()) (1)
+    # + 1 task per day (from tasks 4 and 5) (3)
+    # + 1 task over 3 days (from task 6) (3)
+    expected_aggregated_tasks = 7
+
+    expected_chart_size = expected_aggregated_tasks + chart_header_size + chart_footer_size
+
+    {:ok, actual_chart} =
+      stream
+      |> Aggregate.Tasks.per_day(query)
+      |> Cli.Render.daily_aggregation_as_bar_chart(query)
 
     actual_chart_size = actual_chart |> String.split("\n", trim: true) |> length()
 

@@ -2,7 +2,78 @@ defmodule Cli.Render do
   @moduledoc false
 
   @bar_chart_block "▇"
+  @bar_chart_empty_block "-"
   @bar_chart_ellipsis "..."
+  @day_minutes 24 * 60
+
+  def daily_aggregation_as_bar_chart(aggregation, query) do
+    case aggregation do
+      [_ | _] ->
+        current_periods = get_current_periods()
+
+        header = [label: "Start Date", value_label: "Duration"]
+
+        footer = [label: "Daily task distribution between [#{query.from}] and [#{query.to}]"]
+
+        minutes =
+          1..@day_minutes
+          |> Enum.map(fn minute ->
+            {minute, :empty}
+          end)
+          |> Enum.into(%{})
+
+        rows =
+          aggregation
+          |> Enum.map(fn {start_day, total_duration, entries} ->
+            formatted_total_duration =
+              "#{duration_to_formatted_string(total_duration, Enum.at(entries, 0).start)} "
+
+            day_string = "#{start_day}T00:00:00"
+            {:ok, day} = NaiveDateTime.from_iso8601(day_string)
+
+            colour =
+              naive_date_time_to_period(day, day_string, current_periods)
+              |> period_to_colour()
+
+            entries =
+              entries
+              |> Enum.flat_map(fn entry ->
+                offset = div(NaiveDateTime.diff(entry.start, day, :second), 60)
+
+                offset..(offset + entry.duration - 1)
+                |> Enum.map(fn minute -> {minute + 1, colour} end)
+              end)
+              |> Enum.into(%{})
+
+            entries =
+              Map.merge(minutes, entries)
+              |> Enum.sort_by(fn {minute, _} -> minute end)
+              |> Enum.reverse()
+              |> Enum.reduce(%{}, fn {_, colour}, acc ->
+                block_id = max(Map.size(acc) - 1, 0)
+
+                block_op =
+                  case Map.get(acc, block_id, {0, colour}) do
+                    {block_size, ^colour} -> {:update, {block_size + 1, colour}}
+                    _ -> {:add, {1, colour}}
+                  end
+
+                case block_op do
+                  {:add, block_data} -> Map.put(acc, block_id + 1, block_data)
+                  {:update, block_data} -> Map.put(acc, block_id, block_data)
+                end
+              end)
+              |> Enum.map(fn {_, entry} -> entry end)
+
+            {start_day, @day_minutes, formatted_total_duration, entries}
+          end)
+
+        {:ok, bar_chart(header, rows, footer)}
+
+      [] ->
+        {:error, "No data"}
+    end
+  end
 
   def duration_aggregation_as_bar_chart(aggregation, query) do
     case aggregation do
@@ -31,7 +102,6 @@ defmodule Cli.Render do
                 {%{entry | start: start_string}, colour}
               end)
               |> Enum.sort_by(fn {entry, _} -> entry.start end)
-              |> Enum.reverse()
               |> Enum.map(fn {entry, colour} ->
                 {entry.duration, colour}
               end)
@@ -143,14 +213,42 @@ defmodule Cli.Render do
 
         chart_blocks = trunc(max_value_size * total_value / largest_value)
 
+        {_, entries} =
+          entries
+          |> Enum.reduce({0, []}, fn {size, colour}, {remainder, entries} ->
+            current_remainder = rem(chart_blocks * size, total_value)
+
+            cond do
+              current_remainder == 0 ->
+                {
+                  remainder,
+                  [{div(chart_blocks * size, total_value), colour} | entries]
+                }
+
+              remainder == 0 ->
+                {
+                  current_remainder,
+                  [{div(chart_blocks * size, total_value), colour} | entries]
+                }
+
+              true ->
+                updated_remainder = rem(chart_blocks * size + remainder, total_value)
+                entry_blocks = div(chart_blocks * size + remainder, total_value)
+
+                {
+                  updated_remainder,
+                  [{entry_blocks, colour} | entries]
+                }
+            end
+          end)
+
         value =
           entries
-          |> Enum.map(fn {value, colour} ->
-            if value > 0 do
-              entry_blocks = trunc(chart_blocks * value / total_value)
-
+          |> Enum.map(fn {entry_blocks, colour} ->
+            if entry_blocks > 0 do
               case colour do
                 :default -> entry_chart_segment(@bar_chart_block, entry_blocks)
+                :empty -> entry_chart_segment(@bar_chart_empty_block, entry_blocks)
                 colour -> coloured_entry_chart_segment(@bar_chart_block, entry_blocks, colour)
               end
             else

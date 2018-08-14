@@ -134,7 +134,7 @@ defmodule Api.Service do
     end
   end
 
-  def get_stats(query) do
+  def get_duration_aggregation(query) do
     case Api.Config.get(Config, :store) do
       {:ok, store} ->
         with {:ok, stream} <- Persistence.Store.list(store, Store) do
@@ -144,6 +144,25 @@ defmodule Api.Service do
             |> flatten()
             |> with_query_filter(query)
             |> Aggregate.Tasks.with_total_duration(query)
+          }
+        end
+
+      :error ->
+        message = "No store is configured"
+        {:error, message}
+    end
+  end
+
+  def get_daily_aggregation(query) do
+    case Api.Config.get(Config, :store) do
+      {:ok, store} ->
+        with {:ok, stream} <- Persistence.Store.list(store, Store) do
+          {
+            :ok,
+            stream
+            |> flatten()
+            |> with_query_filter(query)
+            |> Aggregate.Tasks.per_day(query)
           }
         end
 
