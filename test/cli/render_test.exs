@@ -3,6 +3,9 @@ defmodule Cli.RenderTest do
 
   use ExUnit.Case
 
+  @day_minutes 24 * 60
+  @day_seconds @day_minutes * 60
+
   test "retrieves the current shell width" do
     default_shell_width = 1
     assert Cli.Render.get_shell_width(default_shell_width) > 0 == true
@@ -37,7 +40,6 @@ defmodule Cli.RenderTest do
   end
 
   test "converts a list of tasks to table rows" do
-    day_seconds = 24 * 60 * 60
     start_time = NaiveDateTime.utc_now()
 
     expected_task_1 = %Api.Task{
@@ -50,42 +52,42 @@ defmodule Cli.RenderTest do
     expected_task_2 = %Api.Task{
       id: UUID.uuid4(),
       task: "test-task2",
-      start: NaiveDateTime.add(start_time, 1 * day_seconds, :second),
+      start: NaiveDateTime.add(start_time, 1 * @day_seconds, :second),
       duration: 10
     }
 
     expected_task_3 = %Api.Task{
       id: UUID.uuid4(),
       task: "test-task3",
-      start: NaiveDateTime.add(start_time, -1 * day_seconds, :second),
+      start: NaiveDateTime.add(start_time, -1 * @day_seconds, :second),
       duration: 10
     }
 
     expected_task_4 = %Api.Task{
       id: UUID.uuid4(),
       task: "test-task4",
-      start: NaiveDateTime.add(start_time, 30 * day_seconds, :second),
+      start: NaiveDateTime.add(start_time, 30 * @day_seconds, :second),
       duration: 20
     }
 
     expected_task_5 = %Api.Task{
       id: UUID.uuid4(),
       task: "test-task5",
-      start: NaiveDateTime.add(start_time, -30 * day_seconds, :second),
+      start: NaiveDateTime.add(start_time, -30 * @day_seconds, :second),
       duration: 20
     }
 
     expected_task_6 = %Api.Task{
       id: UUID.uuid4(),
       task: "test-task6",
-      start: NaiveDateTime.add(start_time, 120 * day_seconds, :second),
+      start: NaiveDateTime.add(start_time, 120 * @day_seconds, :second),
       duration: 20
     }
 
     expected_task_7 = %Api.Task{
       id: UUID.uuid4(),
       task: "test-task7",
-      start: NaiveDateTime.add(start_time, -120 * day_seconds, :second),
+      start: NaiveDateTime.add(start_time, -120 * @day_seconds, :second),
       duration: 20
     }
 
@@ -258,8 +260,6 @@ defmodule Cli.RenderTest do
   end
 
   test "converts tasks grouped by duration to a bar chart" do
-    day_seconds = 24 * 60 * 60
-
     tasks = Cli.Fixtures.mock_tasks()
 
     expected_task_4 = %Api.Task{
@@ -272,42 +272,42 @@ defmodule Cli.RenderTest do
     expected_task_5 = %Api.Task{
       id: UUID.uuid4(),
       task: "test-task3",
-      start: NaiveDateTime.utc_now() |> NaiveDateTime.add(day_seconds, :second),
+      start: NaiveDateTime.utc_now() |> NaiveDateTime.add(@day_seconds, :second),
       duration: 100
     }
 
     expected_task_6 = %Api.Task{
       id: UUID.uuid4(),
       task: List.duplicate("test", 120) |> Enum.join(),
-      start: NaiveDateTime.utc_now() |> NaiveDateTime.add(-day_seconds, :second),
+      start: NaiveDateTime.utc_now() |> NaiveDateTime.add(-@day_seconds, :second),
       duration: 85
     }
 
     expected_task_7 = %Api.Task{
       id: UUID.uuid4(),
       task: "test-task3",
-      start: NaiveDateTime.utc_now() |> NaiveDateTime.add(10 * day_seconds, :second),
+      start: NaiveDateTime.utc_now() |> NaiveDateTime.add(10 * @day_seconds, :second),
       duration: 100
     }
 
     expected_task_8 = %Api.Task{
       id: UUID.uuid4(),
       task: List.duplicate("test", 120) |> Enum.join(),
-      start: NaiveDateTime.utc_now() |> NaiveDateTime.add(-10 * day_seconds, :second),
+      start: NaiveDateTime.utc_now() |> NaiveDateTime.add(-10 * @day_seconds, :second),
       duration: 85
     }
 
     expected_task_9 = %Api.Task{
       id: UUID.uuid4(),
       task: List.duplicate("test", 120) |> Enum.join(),
-      start: NaiveDateTime.utc_now() |> NaiveDateTime.add(120 * day_seconds, :second),
+      start: NaiveDateTime.utc_now() |> NaiveDateTime.add(120 * @day_seconds, :second),
       duration: 85
     }
 
     expected_task_10 = %Api.Task{
       id: UUID.uuid4(),
       task: List.duplicate("test", 120) |> Enum.join(),
-      start: NaiveDateTime.utc_now() |> NaiveDateTime.add(-120 * day_seconds, :second),
+      start: NaiveDateTime.utc_now() |> NaiveDateTime.add(-120 * @day_seconds, :second),
       duration: 85
     }
 
@@ -349,9 +349,6 @@ defmodule Cli.RenderTest do
   end
 
   test "converts tasks grouped by period to a bar chart" do
-    day_minutes = 24 * 60
-    day_seconds = day_minutes * 60
-
     tasks = Cli.Fixtures.mock_tasks()
 
     expected_task_4 = %Api.Task{
@@ -364,15 +361,15 @@ defmodule Cli.RenderTest do
     expected_task_5 = %Api.Task{
       id: UUID.uuid4(),
       task: "test-task3",
-      start: NaiveDateTime.utc_now() |> NaiveDateTime.add(-day_seconds, :second),
+      start: NaiveDateTime.utc_now() |> NaiveDateTime.add(-@day_seconds, :second),
       duration: 100
     }
 
     expected_task_6 = %Api.Task{
       id: UUID.uuid4(),
       task: List.duplicate("test", 120) |> Enum.join(),
-      start: NaiveDateTime.utc_now() |> NaiveDateTime.add(day_seconds, :second),
-      duration: 3 * day_minutes
+      start: NaiveDateTime.utc_now() |> NaiveDateTime.add(@day_seconds, :second),
+      duration: 3 * @day_minutes
     }
 
     stream =
@@ -413,8 +410,8 @@ defmodule Cli.RenderTest do
     expected_task_7 = %Api.Task{
       id: UUID.uuid4(),
       task: List.duplicate("test", 120) |> Enum.join(),
-      start: NaiveDateTime.utc_now() |> NaiveDateTime.add(7 * day_seconds, :second),
-      duration: 3 * day_minutes
+      start: NaiveDateTime.utc_now() |> NaiveDateTime.add(7 * @day_seconds, :second),
+      duration: 3 * @day_minutes
     }
 
     stream =
@@ -449,8 +446,8 @@ defmodule Cli.RenderTest do
     expected_task_7 = %Api.Task{
       id: UUID.uuid4(),
       task: List.duplicate("test", 120) |> Enum.join(),
-      start: NaiveDateTime.utc_now() |> NaiveDateTime.add(31 * day_seconds, :second),
-      duration: 3 * day_minutes
+      start: NaiveDateTime.utc_now() |> NaiveDateTime.add(31 * @day_seconds, :second),
+      duration: 3 * @day_minutes
     }
 
     stream =
@@ -477,6 +474,61 @@ defmodule Cli.RenderTest do
       stream
       |> Aggregate.Tasks.per_period(query, :month)
       |> Cli.Render.period_aggregation_as_bar_chart(query, :month)
+
+    actual_chart_size = actual_chart |> String.split("\n", trim: true) |> length()
+
+    assert actual_chart_size == expected_chart_size
+  end
+
+  test "converts a task's data grouped by period to a line chart" do
+    tasks = Cli.Fixtures.mock_tasks()
+
+    expected_task_4 = %Api.Task{
+      id: UUID.uuid4(),
+      task: "test-task3",
+      start: NaiveDateTime.utc_now(),
+      duration: 45
+    }
+
+    expected_task_5 = %Api.Task{
+      id: UUID.uuid4(),
+      task: "test-task3",
+      start: NaiveDateTime.utc_now() |> NaiveDateTime.add(-@day_seconds, :second),
+      duration: 100
+    }
+
+    expected_task_6 = %Api.Task{
+      id: UUID.uuid4(),
+      task: List.duplicate("test", 120) |> Enum.join(),
+      start: NaiveDateTime.utc_now() |> NaiveDateTime.add(@day_seconds, :second),
+      duration: 3 * @day_minutes
+    }
+
+    stream =
+      Cli.Fixtures.mock_tasks_stream(
+        tasks ++
+          [
+            expected_task_4,
+            expected_task_5,
+            expected_task_6
+          ]
+      )
+
+    query = %Api.Query{
+      from: Enum.at(tasks, 0).start,
+      to: Enum.at(tasks, 0).start,
+      sort_by: "task",
+      order: "asc"
+    }
+
+    expected_chart_size = 27
+
+    task_regex = ~r/.*/
+
+    {:ok, actual_chart} =
+      stream
+      |> Aggregate.Tasks.per_period_for_a_task(query, task_regex, :day)
+      |> Cli.Render.task_aggregation_as_line_chart(query, task_regex, :day)
 
     actual_chart_size = actual_chart |> String.split("\n", trim: true) |> length()
 

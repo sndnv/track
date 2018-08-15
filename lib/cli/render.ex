@@ -8,6 +8,33 @@ defmodule Cli.Render do
   @week_mintues 7 * @day_minutes
   @month_mintues 31 * @day_minutes
 
+  def task_aggregation_as_line_chart(aggregation, query, task_regex, group_period) do
+    case aggregation do
+      [_ | _] ->
+        footer_label =
+          case group_period do
+            :day -> "Daily"
+            :week -> "Weekly"
+            :month -> "Monthly"
+          end
+
+        footer =
+          "#{footer_label} task duration between [#{query.from}] and [#{query.to}], for tasks matching [#{
+            task_regex |> Regex.source()
+          }]"
+
+        chart_data =
+          aggregation
+          |> Enum.map(fn {_, total_duration, _} -> total_duration / 60 end)
+
+        {:ok, chart} = Asciichart.plot(chart_data)
+        {:ok, "#{chart}\n#{footer}"}
+
+      [] ->
+        {:error, "No data"}
+    end
+  end
+
   def period_aggregation_as_bar_chart(aggregation, query, group_period) do
     case aggregation do
       [_ | _] ->

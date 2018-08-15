@@ -5,7 +5,7 @@ defmodule Track.MixProject do
     [
       app: :track,
       version: "1.0.0",
-      elixir: "~> 1.6",
+      elixir: "~> 1.7",
       start_permanent: Mix.env() == :prod,
       deps: deps(),
       aliases: aliases(),
@@ -32,6 +32,7 @@ defmodule Track.MixProject do
       {:poison, "~> 4.0.1"},
       {:elixir_uuid, "~> 1.2"},
       {:table_rex, "~> 2.0.0"},
+      {:asciichart, "~> 1.0"},
       {:excoveralls, "~> 0.9.1", only: :test}
     ]
   end

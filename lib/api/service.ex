@@ -172,6 +172,25 @@ defmodule Api.Service do
     end
   end
 
+  def get_task_aggregation(query, task_regex, group_period) do
+    case Api.Config.get(Config, :store) do
+      {:ok, store} ->
+        with {:ok, stream} <- Persistence.Store.list(store, Store) do
+          {
+            :ok,
+            stream
+            |> flatten()
+            |> with_query_filter(query)
+            |> Aggregate.Tasks.per_period_for_a_task(query, task_regex, group_period)
+          }
+        end
+
+      :error ->
+        message = "No store is configured"
+        {:error, message}
+    end
+  end
+
   def process_command(service, parameters) do
     case service do
       "store" ->
