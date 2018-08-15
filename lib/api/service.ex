@@ -45,6 +45,46 @@ defmodule Api.Service do
     end
   end
 
+  def update_task(id, update) do
+    case Api.Config.get(Config, :store) do
+      {:ok, store} ->
+        with {:ok, stream} <- Persistence.Store.list(store, Store) do
+          target_task =
+            stream
+            |> flatten()
+            |> Aggregate.Tasks.as_list()
+            |> Enum.find(fn entry -> entry.id == id end)
+
+          if target_task do
+            case remove_task(target_task.id) do
+              :ok ->
+                updated_task =
+                  update
+                  |> Map.from_struct()
+                  |> Enum.reduce(target_task, fn {field, value}, updated_task ->
+                    if value do
+                      Map.put(updated_task, field, value)
+                    else
+                      updated_task
+                    end
+                  end)
+
+                add_task(updated_task)
+
+              error ->
+                error
+            end
+          else
+            {:error, "Task with ID [#{id}] was not found"}
+          end
+        end
+
+      :error ->
+        message = "No store is configured"
+        {:error, message}
+    end
+  end
+
   def start_task(task) do
     case Api.Config.get(Config, :store) do
       {:ok, store} ->

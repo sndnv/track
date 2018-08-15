@@ -493,14 +493,14 @@ defmodule Cli.RenderTest do
     expected_task_5 = %Api.Task{
       id: UUID.uuid4(),
       task: "test-task3",
-      start: NaiveDateTime.utc_now() |> NaiveDateTime.add(-@day_seconds, :second),
+      start: Enum.at(tasks, 0).start |> NaiveDateTime.add(-@day_seconds, :second),
       duration: 100
     }
 
     expected_task_6 = %Api.Task{
       id: UUID.uuid4(),
       task: List.duplicate("test", 120) |> Enum.join(),
-      start: NaiveDateTime.utc_now() |> NaiveDateTime.add(@day_seconds, :second),
+      start: Enum.at(tasks, 0).start |> NaiveDateTime.add(@day_seconds, :second),
       duration: 3 * @day_minutes
     }
 

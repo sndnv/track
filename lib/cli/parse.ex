@@ -16,6 +16,87 @@ defmodule Cli.Parse do
     {options, remaining_args}
   end
 
+  @expected_update_args [
+    task: :string,
+    start_date: :string,
+    start_time: :string,
+    duration: :string
+  ]
+
+  @spec args_to_task_update([String.t()]) :: Api.TaskUpdate.t()
+  def args_to_task_update(args) do
+    parsed =
+      case args do
+        [head | _] ->
+          cond do
+            String.starts_with?(head, "--") ->
+              parse_as_options(@expected_update_args, args)
+
+            String.contains?(head, "=") ->
+              parse_as_kv(@expected_update_args, args)
+
+            true ->
+              # positional arguments are not supported
+              []
+          end
+
+        [] ->
+          []
+      end
+
+    case parsed do
+      [_ | _] ->
+        task =
+          if parsed[:task] do
+            parse_task(parsed[:task])
+          else
+            {:ok, nil}
+          end
+
+        start_utc =
+          if parsed[:start_date] && parsed[:start_time] do
+            with {:ok, start_date} <- parse_date(parsed[:start_date]),
+                 {:ok, time_type, start_time} <- parse_time(parsed[:start_time]),
+                 {:ok, start_utc} <- from_local_time_zone(start_date, start_time, time_type) do
+              {:ok, start_utc}
+            end
+          else
+            {:ok, nil}
+          end
+
+        duration =
+          if parsed[:duration] do
+            case parse_duration(parsed[:duration]) do
+              {:ok, parsed_duration} when parsed_duration > 0 -> {:ok, parsed_duration}
+              {:ok, parsed_duration} -> {:error, "Task duration cannot be [#{parsed_duration}]"}
+              error -> error
+            end
+          else
+            {:ok, nil}
+          end
+
+        with {:ok, task} <- task,
+             {:ok, start_utc} <- start_utc,
+             {:ok, duration} <- duration do
+          if task || start_utc || duration do
+            {
+              :ok,
+              %Api.TaskUpdate{
+                task: task,
+                start: start_utc,
+                duration: duration
+              }
+            }
+          else
+            {:error, "No expected or valid arguments specified"}
+          end
+        end
+
+      [] ->
+        {:error, "No or unparsable arguments specified"}
+    end
+  end
+
   @expected_query_args [
     from: :string,
     to: :string,
@@ -28,14 +109,11 @@ defmodule Cli.Parse do
     parsed =
       case args do
         [head | _] ->
-          parsed =
-            cond do
-              String.starts_with?(head, "--") -> parse_as_options(@expected_query_args, args)
-              String.contains?(head, "=") -> parse_as_kv(@expected_query_args, args)
-              true -> parse_as_positional(@expected_query_args, args)
-            end
-
-          Enum.map(parsed, fn {k, v} -> {k, String.downcase(v)} end)
+          cond do
+            String.starts_with?(head, "--") -> parse_as_options(@expected_query_args, args)
+            String.contains?(head, "=") -> parse_as_kv(@expected_query_args, args)
+            true -> parse_as_positional(@expected_query_args, args)
+          end
 
         [] ->
           # uses defaults
@@ -91,15 +169,6 @@ defmodule Cli.Parse do
                   parsed
               end
           end
-
-        parsed =
-          Enum.map(
-            parsed,
-            fn {key, value} ->
-              updated_value = if key != :task, do: String.downcase(value), else: value
-              {key, updated_value}
-            end
-          )
 
         with {:ok, task} <- parse_task(parsed[:task]),
              {:ok, start_date} <- parse_date(Keyword.get(parsed, :start_date, "today")),
@@ -225,7 +294,7 @@ defmodule Cli.Parse do
   @spec parse_task(String.t()) :: {:ok, String.t()} | {:error, String.t()}
   def parse_task(raw_task) do
     cond do
-      String.length(raw_task) > 0 -> {:ok, raw_task}
+      raw_task && String.length(raw_task) > 0 -> {:ok, raw_task}
       true -> {:error, "No task specified"}
     end
   end

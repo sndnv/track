@@ -113,6 +113,7 @@ defmodule Cli.ParseTest do
     assert Parser.parse_task("some-task") == {:ok, "some-task"}
     assert Parser.parse_task("t") == {:ok, "t"}
     assert Parser.parse_task("") == {:error, "No task specified"}
+    assert Parser.parse_task(nil) == {:error, "No task specified"}
   end
 
   test "parses arguments as key=value pairs" do
@@ -560,6 +561,8 @@ defmodule Cli.ParseTest do
     assert expected_task.start == actual_task.start
     assert expected_task.duration == actual_task.duration
 
+    assert Parser.args_to_task(["a=b"]) == {:error, "No task specified"}
+
     assert Parser.args_to_task([]) == {:error, "No arguments specified"}
   end
 
@@ -664,6 +667,21 @@ defmodule Cli.ParseTest do
     {:ok, actual_query} = Parser.args_to_query(args)
     assert expected_query == actual_query
 
+    args = ["a=b"]
+
+    {:ok, expected_from} = NaiveDateTime.from_iso8601("#{Date.utc_today()}T00:00:00")
+    {:ok, expected_to} = NaiveDateTime.from_iso8601("#{Date.utc_today()}T23:59:59")
+
+    expected_query = %Api.Query{
+      from: expected_from,
+      to: expected_to,
+      sort_by: "start",
+      order: "desc"
+    }
+
+    {:ok, actual_query} = Parser.args_to_query(args)
+    assert expected_query == actual_query
+
     args = []
 
     {:ok, expected_from} = NaiveDateTime.from_iso8601("#{Date.utc_today()}T00:00:00")
@@ -678,6 +696,129 @@ defmodule Cli.ParseTest do
 
     {:ok, actual_query} = Parser.args_to_query(args)
     assert expected_query == actual_query
+  end
+
+  test "parses arguments into task updates" do
+    args = [
+      "--task",
+      "test-task"
+    ]
+
+    expected_update = %Api.TaskUpdate{
+      task: "test-task",
+      start: nil,
+      duration: nil
+    }
+
+    {:ok, actual_update} = Parser.args_to_task_update(args)
+    assert expected_update.task == actual_update.task
+    assert expected_update.start == actual_update.start
+    assert expected_update.duration == actual_update.duration
+
+    args = [
+      "--start-date",
+      "2018-12-21",
+      "--start-time",
+      "21:35"
+    ]
+
+    expected_start = local_to_utc_timestamp("2018-12-21T21:35:00Z")
+
+    expected_update = %Api.TaskUpdate{
+      task: nil,
+      start: expected_start,
+      duration: nil
+    }
+
+    {:ok, actual_update} = Parser.args_to_task_update(args)
+    assert expected_update.task == actual_update.task
+    assert expected_update.start == actual_update.start
+    assert expected_update.duration == actual_update.duration
+
+    args = [
+      "--duration",
+      "2h"
+    ]
+
+    expected_update = %Api.TaskUpdate{
+      task: nil,
+      start: nil,
+      duration: 120
+    }
+
+    {:ok, actual_update} = Parser.args_to_task_update(args)
+    assert expected_update.task == actual_update.task
+    assert expected_update.start == actual_update.start
+    assert expected_update.duration == actual_update.duration
+
+    args = [
+      "--task",
+      "test-task",
+      "--start-date",
+      "2018-12-21",
+      "--start-time",
+      "21:35",
+      "--duration",
+      "15m"
+    ]
+
+    expected_start = local_to_utc_timestamp("2018-12-21T21:35:00Z")
+
+    expected_update = %Api.TaskUpdate{
+      task: "test-task",
+      start: expected_start,
+      duration: 15
+    }
+
+    {:ok, actual_update} = Parser.args_to_task_update(args)
+    assert expected_update.task == actual_update.task
+    assert expected_update.start == actual_update.start
+    assert expected_update.duration == actual_update.duration
+
+    args = [
+      "task=test-task",
+      "start-date=2018-12-21",
+      "start-time=21:35",
+      "duration=15m"
+    ]
+
+    expected_start = local_to_utc_timestamp("2018-12-21T21:35:00Z")
+
+    expected_update = %Api.TaskUpdate{
+      task: "test-task",
+      start: expected_start,
+      duration: 15
+    }
+
+    {:ok, actual_update} = Parser.args_to_task_update(args)
+    assert expected_update.task == actual_update.task
+    assert expected_update.start == actual_update.start
+    assert expected_update.duration == actual_update.duration
+
+    args = [
+      "task=test-task",
+      "start-date=2018-12-21",
+      "start-time=21:35",
+      "duration=0m"
+    ]
+
+    assert Parser.args_to_task_update(args) == {:error, "Task duration cannot be [0]"}
+
+    args = [
+      "task=test-task",
+      "start-date=2018-12-21",
+      "start-time=21:35",
+      "duration=15s"
+    ]
+
+    assert Parser.args_to_task_update(args) == {:error, "Invalid duration specified: [15s]"}
+
+    assert Parser.args_to_task_update(["start-date=2018-12-21"]) ==
+             {:error, "No expected or valid arguments specified"}
+
+    assert Parser.args_to_task_update(["a=b"]) == {:error, "No or unparsable arguments specified"}
+
+    assert Parser.args_to_task_update([]) == {:error, "No or unparsable arguments specified"}
   end
 
   test "parse arguments into application options" do
