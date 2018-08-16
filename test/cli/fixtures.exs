@@ -6,6 +6,13 @@ defmodule Cli.Fixtures do
   def mock_tasks() do
     {:ok, start_time} = NaiveDateTime.from_iso8601("2018-12-21T01:02:03")
 
+    expected_task_0 = %Api.Task{
+      id: UUID.uuid4(),
+      task: "test-task-active",
+      start: start_time,
+      duration: 0
+    }
+
     expected_task_1 = %Api.Task{
       id: UUID.uuid4(),
       task: "test-task1",
@@ -27,7 +34,7 @@ defmodule Cli.Fixtures do
       duration: 20
     }
 
-    [expected_task_1, expected_task_2, expected_task_3]
+    [expected_task_0, expected_task_1, expected_task_2, expected_task_3]
   end
 
   def mock_tasks_stream(tasks) do

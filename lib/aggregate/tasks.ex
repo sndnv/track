@@ -12,6 +12,7 @@ defmodule Aggregate.Tasks do
   def per_period(stream, query, group_period) do
     result =
       stream
+      |> without_active_tasks()
       |> with_local_time_zone()
       |> Enum.flat_map(fn entry -> split_task_per_day(entry) end)
       |> as_list()
@@ -46,6 +47,7 @@ defmodule Aggregate.Tasks do
   def with_total_duration(stream, query) do
     result =
       stream
+      |> without_active_tasks()
       |> with_local_time_zone()
       |> as_list()
       |> Enum.group_by(fn entry -> entry.task end)
@@ -171,6 +173,11 @@ defmodule Aggregate.Tasks do
 
       %{entry | start: start_with_time_zone}
     end)
+  end
+
+  def without_active_tasks(stream) do
+    stream
+    |> Stream.filter(fn entry -> entry.duration > 0 end)
   end
 
   def as_list(stream) do

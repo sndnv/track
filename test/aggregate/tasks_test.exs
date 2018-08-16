@@ -12,6 +12,14 @@ defmodule Aggregate.TasksTest do
     assert Aggregate.Tasks.as_list(stream) == tasks
   end
 
+  test "removes active tasks from a stream of tasks" do
+    tasks = Cli.Fixtures.mock_tasks()
+    stream = Cli.Fixtures.mock_tasks_stream(tasks)
+
+    assert Aggregate.Tasks.without_active_tasks(stream) |> Enum.to_list() ==
+             tasks |> Enum.filter(fn entry -> entry.duration > 0 end)
+  end
+
   test "converts tasks start date/time from UTC to the local time zone" do
     tasks = Cli.Fixtures.mock_tasks()
     stream = Cli.Fixtures.mock_tasks_stream(tasks)
@@ -122,6 +130,7 @@ defmodule Aggregate.TasksTest do
     }
 
     assert Aggregate.Tasks.as_sorted_list(stream, query) == [
+             Enum.at(tasks, 3),
              Enum.at(tasks, 2),
              Enum.at(tasks, 1),
              Enum.at(tasks, 0)
@@ -135,8 +144,9 @@ defmodule Aggregate.TasksTest do
     }
 
     assert Aggregate.Tasks.as_sorted_list(stream, query) == [
-             Enum.at(tasks, 1),
              Enum.at(tasks, 2),
+             Enum.at(tasks, 3),
+             Enum.at(tasks, 1),
              Enum.at(tasks, 0)
            ]
 
@@ -148,9 +158,10 @@ defmodule Aggregate.TasksTest do
     }
 
     assert Aggregate.Tasks.as_sorted_list(stream, query) == [
-             Enum.at(tasks, 0),
+             Enum.at(tasks, 1),
+             Enum.at(tasks, 3),
              Enum.at(tasks, 2),
-             Enum.at(tasks, 1)
+             Enum.at(tasks, 0)
            ]
   end
 
@@ -232,7 +243,7 @@ defmodule Aggregate.TasksTest do
 
     stream = Cli.Fixtures.mock_tasks_stream(tasks ++ [expected_task_4, expected_task_5])
 
-    assert Aggregate.Tasks.with_no_duration(stream) == [expected_task_4]
+    assert Aggregate.Tasks.with_no_duration(stream) == [Enum.at(tasks, 0), expected_task_4]
   end
 
   test "aggregates a stream of tasks to a list of tasks per period" do
@@ -297,7 +308,10 @@ defmodule Aggregate.TasksTest do
       {task_6_start_date_p1 |> Date.to_string(), @day_minutes, [expected_task_6.id]},
       {task_5_start_date |> Date.to_string(), 18, [expected_task_5.id]},
       {task_4_start_date |> Date.to_string(), 45, [expected_task_4.id]},
-      {tasks_start_date |> Date.to_string(), 90, tasks |> Enum.map(fn entry -> entry.id end)}
+      {tasks_start_date |> Date.to_string(), 90,
+       tasks
+       |> Enum.filter(fn entry -> entry.duration > 0 end)
+       |> Enum.map(fn entry -> entry.id end)}
     ]
 
     assert actual_aggregation == expected_aggregation
@@ -334,7 +348,10 @@ defmodule Aggregate.TasksTest do
     expected_aggregation = [
       {task_5_start_date |> Date.to_string(), 18, [expected_task_5.id]},
       {task_4_start_date |> Date.to_string(), 45, [expected_task_4.id]},
-      {tasks_start_date |> Date.to_string(), 90, tasks |> Enum.map(fn entry -> entry.id end)},
+      {tasks_start_date |> Date.to_string(), 90,
+       tasks
+       |> Enum.filter(fn entry -> entry.duration > 0 end)
+       |> Enum.map(fn entry -> entry.id end)},
       {task_6_start_date_p1 |> Date.to_string(), @day_minutes, [expected_task_6.id]},
       {task_6_start_date_p2 |> Date.to_string(), @day_minutes, [expected_task_6.id]},
       {task_6_start_date_p3 |> Date.to_string(), @day_minutes, [expected_task_6.id]}
@@ -360,7 +377,9 @@ defmodule Aggregate.TasksTest do
        [expected_task_6.id, expected_task_6.id, expected_task_6.id]},
       {task_5_start_date |> monday_of_date, 18, [expected_task_5.id]},
       {tasks_start_date |> monday_of_date, 135,
-       (tasks |> Enum.map(fn entry -> entry.id end)) ++ [expected_task_4.id]}
+       (tasks
+        |> Enum.filter(fn entry -> entry.duration > 0 end)
+        |> Enum.map(fn entry -> entry.id end)) ++ [expected_task_4.id]}
     ]
 
     assert actual_aggregation == expected_aggregation
@@ -382,7 +401,9 @@ defmodule Aggregate.TasksTest do
       {task_6_start_date_p3 |> month_of_date(), 3 * @day_minutes,
        [expected_task_6.id, expected_task_6.id, expected_task_6.id]},
       {tasks_start_date |> month_of_date(), 153,
-       (tasks |> Enum.map(fn entry -> entry.id end)) ++ [expected_task_4.id, expected_task_5.id]}
+       (tasks
+        |> Enum.filter(fn entry -> entry.duration > 0 end)
+        |> Enum.map(fn entry -> entry.id end)) ++ [expected_task_4.id, expected_task_5.id]}
     ]
 
     assert actual_aggregation == expected_aggregation
