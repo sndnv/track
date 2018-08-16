@@ -38,6 +38,61 @@ defmodule Aggregate.Tasks do
     end
   end
 
+  def with_overlapping_periods(stream) do
+    tasks_list =
+      stream
+      |> without_active_tasks()
+      |> with_local_time_zone()
+      |> as_list()
+
+    tasks_map =
+      tasks_list
+      |> Enum.map(fn entry -> {entry.id, entry} end)
+      |> Map.new()
+
+    tasks_list
+    |> Enum.flat_map(fn entry -> split_task_per_day(entry) end)
+    |> Enum.map(fn {entry, start_day} ->
+      {:ok, start_day} = NaiveDateTime.from_iso8601("#{start_day}T00:00:00")
+      offset = div(NaiveDateTime.diff(entry.start, start_day, :second), 60)
+
+      minutes =
+        offset..(offset + entry.duration - 1)
+        |> Enum.map(fn minute -> {minute + 1, entry.id} end)
+
+      {start_day, minutes}
+    end)
+    |> Enum.group_by(fn {start_day, _} ->
+      start_day
+    end)
+    |> Enum.map(fn {start_day, entry_minutes} ->
+      overlapping_entries =
+        entry_minutes
+        |> Enum.reduce(
+          %{},
+          fn {_, current_minutes}, acc ->
+            Map.merge(
+              current_minutes |> Map.new(),
+              acc,
+              fn _k, v1, v2 -> if is_list(v2), do: [v1 | v2], else: [v1 | [v2]] end
+            )
+          end
+        )
+        |> Enum.flat_map(fn {_, entry_ids} ->
+          if is_list(entry_ids) && length(entry_ids) > 1, do: entry_ids, else: []
+        end)
+        |> Enum.uniq()
+
+      {
+        start_day,
+        overlapping_entries
+        |> Enum.map(fn entry_id -> Map.get(tasks_map, entry_id) end)
+        |> Enum.sort_by(fn entry -> entry.start end)
+      }
+    end)
+    |> Enum.filter(fn {_, entry_ids} -> length(entry_ids) > 0 end)
+  end
+
   def with_no_duration(stream) do
     stream
     |> Stream.filter(fn entry -> entry.duration <= 0 end)

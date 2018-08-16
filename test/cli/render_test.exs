@@ -252,7 +252,26 @@ defmodule Cli.RenderTest do
     table_footer_size = 1
     expected_table_size = table_header_size + length(tasks) + table_footer_size
 
-    {:ok, actual_table} = stream |> Aggregate.Tasks.as_sorted_list(query) |> Cli.Render.table()
+    {:ok, actual_table} =
+      stream |> Aggregate.Tasks.as_sorted_list(query) |> Cli.Render.tasks_table()
+
+    actual_table_size = actual_table |> String.split("\n", trim: true) |> length()
+
+    assert actual_table_size == expected_table_size
+  end
+
+  test "converts a stream of overlapping tasks to a table" do
+    tasks = Cli.Fixtures.mock_tasks()
+    stream = Cli.Fixtures.mock_tasks_stream(tasks)
+
+    table_header_size = 3
+    table_footer_size = 1
+    # one task is currently active and it is not considered as overlapping
+    overlapping_tasks = length(tasks) - 1
+    expected_table_size = table_header_size + overlapping_tasks + table_footer_size
+
+    {:ok, actual_table} =
+      stream |> Aggregate.Tasks.with_overlapping_periods() |> Cli.Render.overlapping_tasks_table()
 
     actual_table_size = actual_table |> String.split("\n", trim: true) |> length()
 

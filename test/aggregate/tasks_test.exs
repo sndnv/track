@@ -246,6 +246,107 @@ defmodule Aggregate.TasksTest do
     assert Aggregate.Tasks.with_no_duration(stream) == [Enum.at(tasks, 0), expected_task_4]
   end
 
+  test "collects all tasks with overlapping periods" do
+    tasks = Cli.Fixtures.mock_tasks()
+
+    stream = Cli.Fixtures.mock_tasks_stream(tasks)
+
+    expected_start_date = Enum.at(tasks, 0).start |> NaiveDateTime.to_date()
+    {:ok, expected_start_date} = NaiveDateTime.from_iso8601("#{expected_start_date}T00:00:00")
+
+    actual_aggregation =
+      Aggregate.Tasks.with_overlapping_periods(stream)
+      |> Enum.map(fn {date, entries} -> {date, entries |> Enum.map(fn entry -> entry.id end)} end)
+
+    assert actual_aggregation == [
+             {
+               expected_start_date,
+               [
+                 Enum.at(tasks, 1).id,
+                 Enum.at(tasks, 3).id,
+                 Enum.at(tasks, 2).id
+               ]
+             }
+           ]
+
+    expected_task_4 = %Api.Task{
+      id: UUID.uuid4(),
+      task: "test-task3",
+      start: Enum.at(tasks, 0).start |> NaiveDateTime.add(2 * @day_seconds, :second),
+      duration: 45
+    }
+
+    expected_task_5 = %Api.Task{
+      id: UUID.uuid4(),
+      task: "test-task3",
+      start: Enum.at(tasks, 0).start |> NaiveDateTime.add(2 * @day_seconds + 120, :second),
+      duration: 18
+    }
+
+    stream = Cli.Fixtures.mock_tasks_stream(tasks ++ [expected_task_4, expected_task_5])
+
+    expected_start_date_01 = Enum.at(tasks, 0).start |> NaiveDateTime.to_date()
+    expected_start_date_02 = expected_start_date_01 |> Date.add(2)
+
+    {:ok, expected_start_date_01} =
+      NaiveDateTime.from_iso8601("#{expected_start_date_01}T00:00:00")
+
+    {:ok, expected_start_date_02} =
+      NaiveDateTime.from_iso8601("#{expected_start_date_02}T00:00:00")
+
+    actual_aggregation =
+      Aggregate.Tasks.with_overlapping_periods(stream)
+      |> Enum.map(fn {date, entries} -> {date, entries |> Enum.map(fn entry -> entry.id end)} end)
+
+    assert actual_aggregation == [
+             {
+               expected_start_date_01,
+               [
+                 Enum.at(tasks, 1).id,
+                 Enum.at(tasks, 3).id,
+                 Enum.at(tasks, 2).id
+               ]
+             },
+             {
+               expected_start_date_02,
+               [
+                 expected_task_4.id,
+                 expected_task_5.id
+               ]
+             }
+           ]
+
+    expected_task_6 = %Api.Task{
+      id: UUID.uuid4(),
+      task: "test-task6",
+      start: Enum.at(tasks, 0).start |> NaiveDateTime.add(2 * @day_seconds + 120, :second),
+      duration: 18
+    }
+
+    expected_task_7 = %Api.Task{
+      id: UUID.uuid4(),
+      task: "test-task7",
+      start: Enum.at(tasks, 0).start |> NaiveDateTime.add(2 * @day_seconds + 120, :second),
+      duration: 0
+    }
+
+    stream = Cli.Fixtures.mock_tasks_stream([expected_task_6, expected_task_7])
+
+    actual_aggregation =
+      Aggregate.Tasks.with_overlapping_periods(stream)
+      |> Enum.map(fn {date, entries} -> {date, entries |> Enum.map(fn entry -> entry.id end)} end)
+
+    assert actual_aggregation == []
+
+    stream = Cli.Fixtures.mock_tasks_stream([])
+
+    actual_aggregation =
+      Aggregate.Tasks.with_overlapping_periods(stream)
+      |> Enum.map(fn {date, entries} -> {date, entries |> Enum.map(fn entry -> entry.id end)} end)
+
+    assert actual_aggregation == []
+  end
+
   test "aggregates a stream of tasks to a list of tasks per period" do
     tasks = Cli.Fixtures.mock_tasks()
     tasks_start_date = Enum.at(tasks, 0).start |> NaiveDateTime.to_date()

@@ -174,6 +174,24 @@ defmodule Api.Service do
     end
   end
 
+  def list_overlapping_tasks() do
+    case Api.Config.get(Config, :store) do
+      {:ok, store} ->
+        with {:ok, stream} <- Persistence.Store.list(store, Store) do
+          {
+            :ok,
+            stream
+            |> flatten()
+            |> Aggregate.Tasks.with_overlapping_periods()
+          }
+        end
+
+      :error ->
+        message = "No store is configured"
+        {:error, message}
+    end
+  end
+
   def get_duration_aggregation(query) do
     case Api.Config.get(Config, :store) do
       {:ok, store} ->

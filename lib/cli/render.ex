@@ -150,7 +150,39 @@ defmodule Cli.Render do
     end
   end
 
-  def table(list) do
+  def overlapping_tasks_table(list) do
+    rows =
+      list
+      |> Enum.flat_map(fn {start_date, entries} ->
+        entries
+        |> Enum.map(fn entry ->
+          [
+            start_date |> NaiveDateTime.to_date(),
+            entry.id,
+            entry.task,
+            entry.start,
+            duration_to_formatted_string(entry.duration, entry.start)
+          ]
+        end)
+      end)
+
+    case rows do
+      [_ | _] ->
+        table_header = ["Overlap Day", "ID", "Task", "Start", "Duration"]
+
+        table =
+          TableRex.Table.new(rows, table_header)
+          |> TableRex.Table.put_column_meta(4, align: :right)
+          |> TableRex.Table.render!()
+
+        {:ok, table}
+
+      [] ->
+        {:error, "No data"}
+    end
+  end
+
+  def tasks_table(list) do
     rows = list |> to_table_rows()
 
     case rows do
