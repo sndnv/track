@@ -24,242 +24,184 @@ defmodule Api.Service do
   end
 
   def add_task(task) do
-    case Api.Config.get(Config, :store) do
-      {:ok, store} ->
-        Persistence.Store.add(store, Store, task)
-
-      :error ->
-        message = "No store is configured"
-        {:error, message}
-    end
+    {:ok, store} = Api.Config.get(Config, :store)
+    Persistence.Store.add(store, Store, task)
   end
 
   def remove_task(id) do
-    case Api.Config.get(Config, :store) do
-      {:ok, store} ->
-        Persistence.Store.remove(store, Store, id)
-
-      :error ->
-        message = "No store is configured"
-        {:error, message}
-    end
+    {:ok, store} = Api.Config.get(Config, :store)
+    Persistence.Store.remove(store, Store, id)
   end
 
   def update_task(id, update) do
-    case Api.Config.get(Config, :store) do
-      {:ok, store} ->
-        with {:ok, stream} <- Persistence.Store.list(store, Store) do
-          target_task =
-            stream
-            |> flatten()
-            |> Aggregate.Tasks.as_list()
-            |> Enum.find(fn entry -> entry.id == id end)
+    {:ok, store} = Api.Config.get(Config, :store)
 
-          if target_task do
-            case remove_task(target_task.id) do
-              :ok ->
-                updated_task =
-                  update
-                  |> Map.from_struct()
-                  |> Enum.reduce(target_task, fn {field, value}, updated_task ->
-                    if value do
-                      Map.put(updated_task, field, value)
-                    else
-                      updated_task
-                    end
-                  end)
+    with {:ok, stream} <- Persistence.Store.list(store, Store) do
+      target_task =
+        stream
+        |> flatten()
+        |> Aggregate.Tasks.as_list()
+        |> Enum.find(fn entry -> entry.id == id end)
 
-                add_task(updated_task)
+      if target_task do
+        case remove_task(target_task.id) do
+          :ok ->
+            updated_task =
+              update
+              |> Map.from_struct()
+              |> Enum.reduce(target_task, fn {field, value}, updated_task ->
+                if value do
+                  Map.put(updated_task, field, value)
+                else
+                  updated_task
+                end
+              end)
 
-              error ->
-                error
-            end
-          else
-            {:error, "Task with ID [#{id}] was not found"}
-          end
+            add_task(updated_task)
+
+          error ->
+            error
         end
-
-      :error ->
-        message = "No store is configured"
-        {:error, message}
+      else
+        {:error, "Task with ID [#{id}] was not found"}
+      end
     end
   end
 
   def start_task(task) do
-    case Api.Config.get(Config, :store) do
-      {:ok, store} ->
-        with {:ok, stream} <- Persistence.Store.list(store, Store) do
-          active_tasks =
-            stream
-            |> flatten()
-            |> Aggregate.Tasks.with_no_duration()
+    {:ok, store} = Api.Config.get(Config, :store)
 
-          case active_tasks do
-            [active_task | _] ->
-              {:error, "Task [#{active_task.task} / #{active_task.id}] is already active"}
+    with {:ok, stream} <- Persistence.Store.list(store, Store) do
+      active_tasks =
+        stream
+        |> flatten()
+        |> Aggregate.Tasks.with_no_duration()
 
-            [] ->
-              task = %Api.Task{
-                id: UUID.uuid4(),
-                task: task,
-                start: NaiveDateTime.utc_now(),
-                duration: 0
-              }
+      case active_tasks do
+        [active_task | _] ->
+          {:error, "Task [#{active_task.task} / #{active_task.id}] is already active"}
 
-              add_task(task)
-          end
-        end
+        [] ->
+          task = %Api.Task{
+            id: UUID.uuid4(),
+            task: task,
+            start: NaiveDateTime.utc_now(),
+            duration: 0
+          }
 
-      :error ->
-        message = "No store is configured"
-        {:error, message}
+          add_task(task)
+      end
     end
   end
 
   def stop_task() do
-    case Api.Config.get(Config, :store) do
-      {:ok, store} ->
-        with {:ok, stream} <- Persistence.Store.list(store, Store) do
-          active_tasks =
-            stream
-            |> flatten()
-            |> Aggregate.Tasks.with_no_duration()
+    {:ok, store} = Api.Config.get(Config, :store)
 
-          case active_tasks do
-            [active_task | _] ->
-              case remove_task(active_task.id) do
-                :ok ->
-                  task_duration =
-                    NaiveDateTime.diff(NaiveDateTime.utc_now(), active_task.start, :second)
-                    |> div(60)
+    with {:ok, stream} <- Persistence.Store.list(store, Store) do
+      active_tasks =
+        stream
+        |> flatten()
+        |> Aggregate.Tasks.with_no_duration()
 
-                  if task_duration > 0 do
-                    updated_task = %{active_task | duration: task_duration}
-                    add_task(updated_task)
-                  else
-                    :ok
-                  end
+      case active_tasks do
+        [active_task | _] ->
+          case remove_task(active_task.id) do
+            :ok ->
+              task_duration =
+                NaiveDateTime.diff(NaiveDateTime.utc_now(), active_task.start, :second)
+                |> div(60)
 
-                error ->
-                  error
+              if task_duration > 0 do
+                updated_task = %{active_task | duration: task_duration}
+                add_task(updated_task)
+              else
+                :ok
               end
 
-            [] ->
-              {:error, "No active tasks found"}
+            error ->
+              error
           end
-        end
 
-      :error ->
-        message = "No store is configured"
-        {:error, message}
+        [] ->
+          {:error, "No active tasks found"}
+      end
     end
   end
 
   def list_tasks(query) do
-    case Api.Config.get(Config, :store) do
-      {:ok, store} ->
-        with {:ok, stream} <- Persistence.Store.list(store, Store) do
-          {
-            :ok,
-            stream
-            |> flatten()
-            |> with_query_filter(query)
-            |> Aggregate.Tasks.as_sorted_list(query)
-          }
-        end
+    {:ok, store} = Api.Config.get(Config, :store)
 
-      :error ->
-        message = "No store is configured"
-        {:error, message}
+    with {:ok, stream} <- Persistence.Store.list(store, Store) do
+      {
+        :ok,
+        stream
+        |> flatten()
+        |> with_query_filter(query)
+        |> Aggregate.Tasks.as_sorted_list(query)
+      }
     end
   end
 
   def list_overlapping_tasks() do
-    case Api.Config.get(Config, :store) do
-      {:ok, store} ->
-        with {:ok, stream} <- Persistence.Store.list(store, Store) do
-          {
-            :ok,
-            stream
-            |> flatten()
-            |> Aggregate.Tasks.with_overlapping_periods()
-          }
-        end
+    {:ok, store} = Api.Config.get(Config, :store)
 
-      :error ->
-        message = "No store is configured"
-        {:error, message}
+    with {:ok, stream} <- Persistence.Store.list(store, Store) do
+      {
+        :ok,
+        stream
+        |> flatten()
+        |> Aggregate.Tasks.with_overlapping_periods()
+      }
     end
   end
 
   def get_duration_aggregation(query) do
-    case Api.Config.get(Config, :store) do
-      {:ok, store} ->
-        with {:ok, stream} <- Persistence.Store.list(store, Store) do
-          {
-            :ok,
-            stream
-            |> flatten()
-            |> with_query_filter(query)
-            |> Aggregate.Tasks.with_total_duration(query)
-          }
-        end
+    {:ok, store} = Api.Config.get(Config, :store)
 
-      :error ->
-        message = "No store is configured"
-        {:error, message}
+    with {:ok, stream} <- Persistence.Store.list(store, Store) do
+      {
+        :ok,
+        stream
+        |> flatten()
+        |> with_query_filter(query)
+        |> Aggregate.Tasks.with_total_duration(query)
+      }
     end
   end
 
   def get_period_aggregation(query, period) do
-    case Api.Config.get(Config, :store) do
-      {:ok, store} ->
-        with {:ok, stream} <- Persistence.Store.list(store, Store) do
-          {
-            :ok,
-            stream
-            |> flatten()
-            |> with_query_filter(query)
-            |> Aggregate.Tasks.per_period(query, period)
-          }
-        end
+    {:ok, store} = Api.Config.get(Config, :store)
 
-      :error ->
-        message = "No store is configured"
-        {:error, message}
+    with {:ok, stream} <- Persistence.Store.list(store, Store) do
+      {
+        :ok,
+        stream
+        |> flatten()
+        |> with_query_filter(query)
+        |> Aggregate.Tasks.per_period(query, period)
+      }
     end
   end
 
   def get_task_aggregation(query, task_regex, group_period) do
-    case Api.Config.get(Config, :store) do
-      {:ok, store} ->
-        with {:ok, stream} <- Persistence.Store.list(store, Store) do
-          {
-            :ok,
-            stream
-            |> flatten()
-            |> with_query_filter(query)
-            |> Aggregate.Tasks.per_period_for_a_task(query, task_regex, group_period)
-          }
-        end
+    {:ok, store} = Api.Config.get(Config, :store)
 
-      :error ->
-        message = "No store is configured"
-        {:error, message}
+    with {:ok, stream} <- Persistence.Store.list(store, Store) do
+      {
+        :ok,
+        stream
+        |> flatten()
+        |> with_query_filter(query)
+        |> Aggregate.Tasks.per_period_for_a_task(query, task_regex, group_period)
+      }
     end
   end
 
   def process_command(service, parameters) do
     case service do
       "store" ->
-        case Api.Config.get(Config, :store) do
-          {:ok, store} ->
-            Persistence.Store.process_command(store, Store, parameters)
-
-          :error ->
-            message = "No store is configured"
-            {:error, message}
-        end
+        {:ok, store} = Api.Config.get(Config, :store)
+        Persistence.Store.process_command(store, Store, parameters)
 
       _ ->
         {:error, "Service [#{service}] not found"}

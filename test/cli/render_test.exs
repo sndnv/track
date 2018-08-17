@@ -433,39 +433,10 @@ defmodule Cli.RenderTest do
       duration: 3 * @day_minutes
     }
 
-    stream =
-      Cli.Fixtures.mock_tasks_stream(
-        tasks ++
-          [
-            expected_task_4,
-            expected_task_5,
-            expected_task_6,
-            expected_task_7
-          ]
-      )
-
-    chart_header_size = 2
-    chart_footer_size = 2
-    # 3 tasks on the same day (from mock_tasks()) (1)
-    # + 1 task for current week (from tasks 4, 5 and 6) (1)
-    # + 1 task for next week (from task 7) (1)
-    expected_aggregated_tasks = 3
-
-    expected_chart_size = expected_aggregated_tasks + chart_header_size + chart_footer_size
-
-    {:ok, actual_chart} =
-      stream
-      |> Aggregate.Tasks.per_period(query, :week)
-      |> Cli.Render.period_aggregation_as_bar_chart(query, :week)
-
-    actual_chart_size = actual_chart |> String.split("\n", trim: true) |> length()
-
-    assert actual_chart_size == expected_chart_size
-
-    expected_task_7 = %Api.Task{
+    expected_task_8 = %Api.Task{
       id: UUID.uuid4(),
       task: List.duplicate("test", 120) |> Enum.join(),
-      start: NaiveDateTime.utc_now() |> NaiveDateTime.add(31 * @day_seconds, :second),
+      start: NaiveDateTime.utc_now() |> NaiveDateTime.add(-7 * @day_seconds, :second),
       duration: 3 * @day_minutes
     }
 
@@ -476,7 +447,57 @@ defmodule Cli.RenderTest do
             expected_task_4,
             expected_task_5,
             expected_task_6,
-            expected_task_7
+            expected_task_7,
+            expected_task_8
+          ]
+      )
+
+    chart_header_size = 2
+    chart_footer_size = 2
+    # 3 tasks on the same day (from mock_tasks()) (1)
+    # + 1 task for current week (from tasks 4, 5 and 6) (1)
+    # + 1 task for next week (from task 7) (1)
+    # + 1 task for previous week (from task 8) (1)
+    expected_aggregated_tasks = 4
+    # + 1 for previous/next day (from tasks 4, 5 and 6)
+    # + 1 for previous/next week (from tasks 7 and 8)
+    max_variation = 2
+
+    expected_chart_size = expected_aggregated_tasks + chart_header_size + chart_footer_size
+
+    {:ok, actual_chart} =
+      stream
+      |> Aggregate.Tasks.per_period(query, :week)
+      |> Cli.Render.period_aggregation_as_bar_chart(query, :week)
+
+    actual_chart_size = actual_chart |> String.split("\n", trim: true) |> length()
+
+    assert actual_chart_size >= expected_chart_size - max_variation
+    assert actual_chart_size <= expected_chart_size + max_variation
+
+    expected_task_7 = %Api.Task{
+      id: UUID.uuid4(),
+      task: List.duplicate("test", 120) |> Enum.join(),
+      start: NaiveDateTime.utc_now() |> NaiveDateTime.add(31 * @day_seconds, :second),
+      duration: 3 * @day_minutes
+    }
+
+    expected_task_8 = %Api.Task{
+      id: UUID.uuid4(),
+      task: List.duplicate("test", 120) |> Enum.join(),
+      start: NaiveDateTime.utc_now() |> NaiveDateTime.add(-31 * @day_seconds, :second),
+      duration: 3 * @day_minutes
+    }
+
+    stream =
+      Cli.Fixtures.mock_tasks_stream(
+        tasks ++
+          [
+            expected_task_4,
+            expected_task_5,
+            expected_task_6,
+            expected_task_7,
+            expected_task_8
           ]
       )
 
@@ -485,7 +506,11 @@ defmodule Cli.RenderTest do
     # 3 tasks on the same day (from mock_tasks()) (1)
     # + 1 task for current week (from tasks 4, 5 and 6) (1)
     # + 1 task for next month (from task 7) (1)
-    expected_aggregated_tasks = 3
+    # + 1 task for next month (from task 9) (1)
+    expected_aggregated_tasks = 4
+    # + 1 for previous/next day (from tasks 4, 5 and 6)
+    # + 1 for previous/next week (from tasks 7 and 8)
+    max_variation = 2
 
     expected_chart_size = expected_aggregated_tasks + chart_header_size + chart_footer_size
 
@@ -496,7 +521,8 @@ defmodule Cli.RenderTest do
 
     actual_chart_size = actual_chart |> String.split("\n", trim: true) |> length()
 
-    assert actual_chart_size == expected_chart_size
+    assert actual_chart_size >= expected_chart_size - max_variation
+    assert actual_chart_size <= expected_chart_size + max_variation
   end
 
   test "converts a task's data grouped by period to a line chart" do
