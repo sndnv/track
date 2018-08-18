@@ -2,6 +2,7 @@ defmodule Persistence.Memory do
   @moduledoc false
 
   use GenServer
+  require Logger
 
   @behaviour Persistence.Store
 
@@ -14,19 +15,51 @@ defmodule Persistence.Memory do
   end
 
   def add(store, task) do
-    GenServer.call(store, {:add, task})
+    Logger.debug(fn -> "[memory] [add] Adding task [#{inspect(task)}] to log" end)
+
+    result = GenServer.call(store, {:add, task})
+
+    Logger.debug(fn ->
+      "[memory] [add] Task addition for [#{task.id}] completed with: [#{inspect(result)}]"
+    end)
+
+    result
   end
 
   def remove(store, id) do
-    GenServer.call(store, {:remove, id})
+    Logger.debug(fn -> "[memory] [remove] Removing task [#{id}] from log" end)
+
+    result = GenServer.call(store, {:remove, id})
+
+    Logger.debug(fn ->
+      "[memory] [remove] Task removal for [#{id}] completed with: [#{inspect(result)}]"
+    end)
+
+    result
   end
 
   def list(store) do
-    GenServer.call(store, {:list})
+    Logger.debug(fn -> "[memory] [list] Retrieving tasks stream" end)
+
+    result = GenServer.call(store, {:list})
+
+    Logger.debug(fn -> "[memory] [list] Tasks stream retrieved: [#{inspect(result)}]" end)
+
+    result
   end
 
   def process_command(store, parameters) do
-    GenServer.call(store, {:command, parameters})
+    Logger.debug(fn ->
+      "[memory] [command] Executing command with parameters: [#{inspect(parameters)}]"
+    end)
+
+    result = GenServer.call(store, {:command, parameters})
+
+    Logger.debug(fn ->
+      "[memory] [command] Command execution completed with: [#{inspect(result)}]"
+    end)
+
+    result
   end
 
   def handle_call(request, _from, store) do

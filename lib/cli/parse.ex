@@ -237,15 +237,17 @@ defmodule Cli.Parse do
             {:ok, time}
 
           :local ->
-            dts =
+            times =
               time
               |> NaiveDateTime.to_erl()
               |> :calendar.local_time_to_universal_time_dst()
               |> Enum.map(fn dt -> NaiveDateTime.from_erl!(dt) end)
 
-            case dts do
+            case times do
               [] ->
-                {:error, "Period skipped due to switching to DST"}
+                message = "Due to switching to DST, no valid timestamp for [#{time}] exists"
+                Logger.warn(fn -> message end)
+                {:error, message}
 
               [actual_time] ->
                 {:ok, actual_time}

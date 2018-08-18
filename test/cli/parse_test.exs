@@ -366,7 +366,8 @@ defmodule Cli.ParseTest do
         assert expected_date_time == actual_date_time
 
       {:error, error} ->
-        assert error == "Period skipped due to switching to DST"
+        assert error ==
+                 "Due to switching to DST, no valid timestamp for [2018-03-25 02:33:00] exists"
     end
 
     # test result is dependant on the local user's time zone
