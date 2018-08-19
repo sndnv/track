@@ -73,10 +73,10 @@ defmodule Aggregate.TasksTest do
 
     first_day_end_time = first_day_end_time |> NaiveDateTime.add(1, :second)
 
-    first_day_remaining_mintues =
+    first_day_remaining_minutes =
       div(NaiveDateTime.diff(first_day_end_time, start_time, :second), 60)
 
-    last_day_minutes = @day_minutes - first_day_remaining_mintues
+    last_day_minutes = @day_minutes - first_day_remaining_minutes
 
     expected_tasks = [
       {
@@ -100,7 +100,7 @@ defmodule Aggregate.TasksTest do
         start_day |> Date.add(1)
       },
       {
-        %{task | duration: first_day_remaining_mintues},
+        %{task | duration: first_day_remaining_minutes},
         start_day
       }
     ]

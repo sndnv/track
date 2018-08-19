@@ -118,7 +118,7 @@ defmodule Cli.CommandsTest do
   end
 
   test "generates list/report legend" do
-    {:print, result} = Cli.Commands.legend()
+    {:output, result} = Cli.Commands.legend()
     assert String.split(result, "\n") |> Enum.count() > 0
   end
 end

@@ -1,5 +1,12 @@
 defmodule Api.Config do
-  @moduledoc false
+  @moduledoc """
+  Simple read-only configuration storage service.
+
+  All config is supplied at init time and can later be retrieved using `Api.Config.get/2`.
+
+  Expected options:
+  - `:api_options` - the configuration to store
+  """
 
   use GenServer
 
@@ -11,6 +18,10 @@ defmodule Api.Config do
   def init(options) do
     {:ok, options}
   end
+
+  @doc """
+  Retrieves the config stored for `key` from the supplied `config` service.
+  """
 
   def get(config, key) do
     GenServer.call(config, {:get, key})

@@ -1,12 +1,22 @@
 defmodule Cli.Render do
-  @moduledoc false
+  @moduledoc """
+  Module used for formatting output into charts and tables.
+  """
 
   @bar_chart_block "▇"
   @bar_chart_empty_block "-"
   @bar_chart_ellipsis "..."
   @day_minutes 24 * 60
-  @week_mintues 7 * @day_minutes
-  @month_mintues 31 * @day_minutes
+  @week_minutes 7 * @day_minutes
+  @month_minutes 31 * @day_minutes
+
+  @doc """
+  Builds a line chart from the supplied data.
+
+  The chart will show the total duration of the task(s) per period.
+
+  The available periods are: `:day`, `:week`, `:month`.
+  """
 
   def task_aggregation_as_line_chart(aggregation, query, task_regex, group_period) do
     case aggregation do
@@ -35,6 +45,14 @@ defmodule Cli.Render do
     end
   end
 
+  @doc """
+  Builds a bar chart from the supplied data.
+
+  The chart will show the distribution of tasks throughout the specified period.
+
+  The available periods are: `:day`, `:week`, `:month`.
+  """
+
   def period_aggregation_as_bar_chart(aggregation, query, group_period) do
     case aggregation do
       [_ | _] ->
@@ -43,8 +61,8 @@ defmodule Cli.Render do
         {total_minutes, header_label, footer_label} =
           case group_period do
             :day -> {@day_minutes, "Day", "Daily"}
-            :week -> {@week_mintues, "Week", "Weekly"}
-            :month -> {@month_mintues, "Month", "Monthly"}
+            :week -> {@week_minutes, "Week", "Weekly"}
+            :month -> {@month_minutes, "Month", "Monthly"}
           end
 
         header = [label: header_label, value_label: "Duration"]
@@ -109,6 +127,12 @@ defmodule Cli.Render do
     end
   end
 
+  @doc """
+  Builds a bar chart from the supplied data.
+
+  The chart will show the total duration of each task for the queried period.
+  """
+
   def duration_aggregation_as_bar_chart(aggregation, query) do
     case aggregation do
       [_ | _] ->
@@ -150,6 +174,12 @@ defmodule Cli.Render do
     end
   end
 
+  @doc """
+  Builds a table from the supplied data.
+
+  The table will show all tasks that are overlapping and the day on which the overlap occurs.
+  """
+
   def overlapping_tasks_table(list) do
     rows =
       list
@@ -182,6 +212,12 @@ defmodule Cli.Render do
     end
   end
 
+  @doc """
+  Builds a table from the supplied data.
+
+  The table will show all tasks.
+  """
+
   def tasks_table(list) do
     rows = list |> to_table_rows()
 
@@ -200,6 +236,10 @@ defmodule Cli.Render do
         {:error, "No data"}
     end
   end
+
+  @doc """
+  Converts the supplied period data (period type, start, current periods) into a {colour, period string} tuple.
+  """
 
   def group_data_from_period_data(group_period, start_period, current_periods) do
     case group_period do
@@ -242,6 +282,10 @@ defmodule Cli.Render do
     end
   end
 
+  @doc """
+  Builds a colour legend showing a brief description of what the various chart/table colours mean.
+  """
+
   def period_colour_legend() do
     [
       current_day: "Today's tasks",
@@ -259,7 +303,19 @@ defmodule Cli.Render do
 
       " #{block} -> #{description}"
     end)
+    |> Enum.join("\n")
   end
+
+  @doc """
+  Builds a bar chart from the supplied header, rows and footer data.
+
+  The header supports the following options:
+  - `label` - the string to be used for describing the table's label (left column)
+  - `value_label` - the string to be used for describing the table's value label (label prepended to each entry in the chart)
+
+  The footer supports the following options:
+  - `label` - the string to be used as footer; should be a brief description of what the chart represents
+  """
 
   def bar_chart(header, rows, footer) do
     default_width = 80
@@ -370,6 +426,10 @@ defmodule Cli.Render do
     "#{chart_header}#{chart}#{chart_footer}"
   end
 
+  @doc """
+  Creates a bar chart segment and applies the specified colour to it.
+  """
+
   def coloured_entry_chart_segment(block, num_blocks, colour) do
     IO.ANSI.format(
       [colour, entry_chart_segment(block, num_blocks)],
@@ -377,9 +437,17 @@ defmodule Cli.Render do
     )
   end
 
+  @doc """
+  Creates a bar chart segment.
+  """
+
   def entry_chart_segment(block, num_blocks) do
     List.duplicate(block, num_blocks)
   end
+
+  @doc """
+  Converts the supplied list of tasks into table rows.
+  """
 
   def to_table_rows(list) do
     current_periods = get_current_periods()
@@ -407,6 +475,10 @@ defmodule Cli.Render do
     end)
   end
 
+  @doc """
+  Retrieves the current periods: {now, current day, list of days for the current week, current month}.
+  """
+
   def get_current_periods() do
     now = NaiveDateTime.utc_now()
 
@@ -431,6 +503,16 @@ defmodule Cli.Render do
     {now, current_day, current_week_days, current_month}
   end
 
+  @doc """
+  Calculates the supplied date/time's period.
+
+  The period can be one of: `:current_day`, `:future`, `:current_week`, `:current_month`, `:past`.
+
+  > Any period that is in the current day will be marked as such, even if it is in the future.
+  > However, `:current_week` and `:current_month` only apply to periods in the past.
+  > If the supplied period is in the current week/month but in the future it will be marked as `:future`.
+  """
+
   def naive_date_time_to_period(
         dt,
         dt_string,
@@ -454,6 +536,12 @@ defmodule Cli.Render do
     end
   end
 
+  @doc """
+  Converts the specified period to a colour.
+
+  Example: `:future` -> `:blue`.
+  """
+
   def period_to_colour(period) do
     case period do
       :future -> :blue
@@ -464,12 +552,31 @@ defmodule Cli.Render do
     end
   end
 
+  @doc """
+  Converts the supplied date/time to a string to be shown to the user.
+
+  The output format is: `YYYY-MM-DD HH:mm`
+  For example: `2015-12-21 23:45`
+  """
+
   def naive_date_time_to_string(dt) do
     date = NaiveDateTime.to_date(dt)
     hours = dt.hour |> Integer.to_string() |> String.pad_leading(2, "0")
     minutes = dt.minute |> Integer.to_string() |> String.pad_leading(2, "0")
     "#{date} #{hours}:#{minutes}"
   end
+
+  @doc """
+  Converts the supplied duration and start time to a string to be shown to the user.
+
+  The format is: `HH:mm`
+  For example: `75:58` (total duration of 75 hours and 58 minutes)
+
+  For active tasks, the expected duration is calculated.
+
+  The format is: `(A) HH:mm`
+  For example: `(A) 75:58` (the task was started 75 hours and 58 minutes ago)
+  """
 
   def duration_to_formatted_string(duration, start) do
     duration = abs(duration)
@@ -492,6 +599,10 @@ defmodule Cli.Render do
       end
     end
   end
+
+  @doc """
+  Retrieves the current width of the user's terminal or returns the specified default.
+  """
 
   def get_shell_width(default_width) do
     case System.cmd("tput", ["cols"]) do

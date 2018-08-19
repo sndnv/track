@@ -1,13 +1,31 @@
 defmodule Aggregate.Tasks do
-  @moduledoc false
+  @moduledoc """
+  Task filtering and aggregation functions.
+
+  All timestamps are converted to the local machine's time zone.
+  """
 
   @day_seconds 24 * 60 * 60
+
+  @doc """
+  Filters and groups the tasks in supplied stream based on the specified regular expression and period.
+
+  The supported periods are: `:day`, `:week`, `:month`.
+
+  > Note: Active tasks are ignored.
+  """
 
   def per_period_for_a_task(stream, query, task_regex, group_period) do
     stream
     |> Stream.filter(fn entry -> Regex.match?(task_regex, entry.task) end)
     |> per_period(query, group_period)
   end
+
+  @doc """
+  Groups the tasks in the supplied stream based on the specified period.
+
+  > Note: Active tasks are ignored.
+  """
 
   def per_period(stream, query, group_period) do
     result =
@@ -37,6 +55,12 @@ defmodule Aggregate.Tasks do
       _ -> result
     end
   end
+
+  @doc """
+  Gathers all tasks that overlap and groups them by day.
+
+  > Note: Active tasks are ignored.
+  """
 
   def with_overlapping_periods(stream) do
     tasks_list =
@@ -93,11 +117,21 @@ defmodule Aggregate.Tasks do
     |> Enum.filter(fn {_, entry_ids} -> length(entry_ids) > 0 end)
   end
 
+  @doc """
+  Returns a list of all tasks that have no duration.
+  """
+
   def with_no_duration(stream) do
     stream
     |> Stream.filter(fn entry -> entry.duration <= 0 end)
     |> as_list()
   end
+
+  @doc """
+  Groups the supplied stream of tasks by task name and calculates their total duration.
+
+  > Note: Active tasks are ignored.
+  """
 
   def with_total_duration(stream, query) do
     result =
@@ -123,6 +157,12 @@ defmodule Aggregate.Tasks do
     end
   end
 
+  @doc """
+  Returns a sorted list of tasks based on the supplied stream.
+
+  > Note: Active tasks are included.
+  """
+
   def as_sorted_list(stream, query) do
     result =
       stream
@@ -142,6 +182,10 @@ defmodule Aggregate.Tasks do
     end
   end
 
+  @doc """
+  Converts the specified date to a string representation of the required period type.
+  """
+
   def task_start_day_to_period(start_day, group_period) do
     case group_period do
       :day ->
@@ -160,6 +204,10 @@ defmodule Aggregate.Tasks do
         "#{start_day.year}-#{start_day.month |> Integer.to_string() |> String.pad_leading(2, "0")}"
     end
   end
+
+  @doc """
+  Splits the specified task into an entry per day, based on the tasks start and duration.
+  """
 
   def split_task_per_day(entry) do
     start_day = entry.start |> NaiveDateTime.to_date()
@@ -217,6 +265,10 @@ defmodule Aggregate.Tasks do
     end
   end
 
+  @doc """
+  Converts each task's UTC start timestamp to the local system's time zone.
+  """
+
   def with_local_time_zone(list) do
     list
     |> Enum.map(fn entry ->
@@ -230,10 +282,18 @@ defmodule Aggregate.Tasks do
     end)
   end
 
+  @doc """
+  Filters all active tasks (duration <= 0) out of the supplied stream.
+  """
+
   def without_active_tasks(stream) do
     stream
     |> Stream.filter(fn entry -> entry.duration > 0 end)
   end
+
+  @doc """
+  Converts the supplied stream to a list.
+  """
 
   def as_list(stream) do
     stream

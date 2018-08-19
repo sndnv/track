@@ -1,5 +1,12 @@
 defmodule Persistence.Memory do
-  @moduledoc false
+  @moduledoc """
+  Memory-only task store.
+
+  Supported commands:
+  - `clear` - removes all tasks
+
+  > Note: For testing purposes only; no data is persisted.
+  """
 
   use GenServer
   require Logger

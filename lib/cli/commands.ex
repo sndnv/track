@@ -1,11 +1,23 @@
 defmodule Cli.Commands do
-  @moduledoc false
+  @moduledoc """
+  Handlers for all commands supported by the application.
+
+  For each command, the user's input is parsed, the command is executed and (if available) the output is returned.
+  """
+
+  @doc """
+  Adds a new task.
+  """
 
   def add_task(args) do
     with {:ok, task} <- Cli.Parse.args_to_task(args) do
       Api.Service.add_task(task)
     end
   end
+
+  @doc """
+  Removes an existing task.
+  """
 
   def remove_task(args) do
     case args do
@@ -19,6 +31,10 @@ defmodule Cli.Commands do
         {:error, "Task ID is required"}
     end
   end
+
+  @doc """
+  Updates an existing task.
+  """
 
   def update_task(args) do
     case args do
@@ -38,6 +54,10 @@ defmodule Cli.Commands do
     end
   end
 
+  @doc """
+  Starts a new active task.
+  """
+
   def start_task(args) do
     case args do
       [task | _] -> Api.Service.start_task(task)
@@ -45,17 +65,37 @@ defmodule Cli.Commands do
     end
   end
 
+  @doc """
+  Stops an existing active task.
+  """
+
   def stop_task() do
     Api.Service.stop_task()
   end
+
+  @doc """
+  Lists all tasks, based on the parsed query data (if available).
+  """
 
   def list(args) do
     with {:ok, query} <- Cli.Parse.args_to_query(args),
          {:ok, list} <- Api.Service.list_tasks(query),
          {:ok, table} <- Cli.Render.tasks_table(list) do
-      {:print, table}
+      {:output, table}
     end
   end
+
+  @doc """
+  Generates a report, based on the requested report type and parsed query data (if available).
+
+  The supported reports are:
+  - `duration` - total task duration (bar chart)
+  - `day` - daily task distribution (bar chart)
+  - `week` - weekly task distribution (bar chart)
+  - `month` - monthly task distribution (bar chart)
+  - `task` - daily task duration (line chart)
+  - `overlap` - overlapping tasks per day (table)
+  """
 
   def report(args) do
     case args do
@@ -63,7 +103,7 @@ defmodule Cli.Commands do
         with {:ok, query} <- Cli.Parse.args_to_query(args),
              {:ok, list} <- Api.Service.get_duration_aggregation(query),
              {:ok, chart} <- Cli.Render.duration_aggregation_as_bar_chart(list, query) do
-          {:print, chart}
+          {:output, chart}
         end
 
       [period | args] when period == "day" or period == "week" or period == "month" ->
@@ -72,7 +112,7 @@ defmodule Cli.Commands do
         with {:ok, query} <- Cli.Parse.args_to_query(args),
              {:ok, list} <- Api.Service.get_period_aggregation(query, period),
              {:ok, chart} <- Cli.Render.period_aggregation_as_bar_chart(list, query, period) do
-          {:print, chart}
+          {:output, chart}
         end
 
       ["task" | args] ->
@@ -88,7 +128,7 @@ defmodule Cli.Commands do
                      task_regex,
                      :day
                    ) do
-              {:print, chart}
+              {:output, chart}
             end
 
           [] ->
@@ -98,7 +138,7 @@ defmodule Cli.Commands do
       ["overlap" | _] ->
         with {:ok, list} <- Api.Service.list_overlapping_tasks(),
              {:ok, table} <- Cli.Render.overlapping_tasks_table(list) do
-          {:print, table}
+          {:output, table}
         end
 
       [report | _] ->
@@ -108,6 +148,10 @@ defmodule Cli.Commands do
         {:error, "No report specified"}
     end
   end
+
+  @doc """
+  Forwards a command to the requested service.
+  """
 
   def service(args) do
     case args do
@@ -122,7 +166,11 @@ defmodule Cli.Commands do
     end
   end
 
+  @doc """
+  Builds a colour legend showing a brief description of what the various chart/table colours mean.
+  """
+
   def legend() do
-    {:print, Cli.Render.period_colour_legend() |> Enum.join("\n")}
+    {:output, Cli.Render.period_colour_legend()}
   end
 end

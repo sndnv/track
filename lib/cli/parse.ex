@@ -1,12 +1,24 @@
 defmodule Cli.Parse do
-  @moduledoc false
+  @moduledoc """
+  Module used for parsing user input.
+  """
 
   require Logger
 
-  @application_options [verbose: :boolean, config: :string]
   @day_minutes 24 * 60
 
-  @spec extract_application_options([String.to()]) :: {[{atom, term}], [String.t()]}
+  @application_options [verbose: :boolean, config: :string]
+
+  @doc """
+  Extracts options from the supplied arguments that are not task/query related.
+
+  The supported options are:
+  - `:verbose` - for enabling extra logging
+  - `:config` - for supplying a custom config file
+
+  The function returns the remaining arguments without the above options.
+  """
+
   def extract_application_options(args) do
     {options, _, _} = OptionParser.parse(args, strict: @application_options)
 
@@ -23,7 +35,10 @@ defmodule Cli.Parse do
     duration: :string
   ]
 
-  @spec args_to_task_update([String.t()]) :: Api.TaskUpdate.t()
+  @doc """
+  Generates a new `Api.TaskUpdate` object from the supplied arguments.
+  """
+
   def args_to_task_update(args) do
     parsed =
       case args do
@@ -104,7 +119,10 @@ defmodule Cli.Parse do
     order: :string
   ]
 
-  @spec args_to_query([String.t()]) :: Api.Query.t()
+  @doc """
+  Generates a new `Api.Query` object from the supplied arguments.
+  """
+
   def args_to_query(args) do
     parsed =
       case args do
@@ -146,7 +164,10 @@ defmodule Cli.Parse do
     duration: :string
   ]
 
-  @spec args_to_task([String.t()]) :: Api.Task.t()
+  @doc """
+  Generates a new `Api.Task` object from the supplied arguments.
+  """
+
   def args_to_task(args) do
     case args do
       [head | _] ->
@@ -191,8 +212,12 @@ defmodule Cli.Parse do
     end
   end
 
-  @spec duration_from_parsed_args([{atom, String.t()}], NaiveDateTime.t(), String.t()) ::
-          {:ok, integer} | {:error, String.t()}
+  @doc """
+  Calculates a task's duration based on the supplied parsed arguments.
+
+  A duration of 0 is considered to be an error.
+  """
+
   def duration_from_parsed_args(parsed_args, start_utc, start_date) do
     cond do
       parsed_args[:duration] ->
@@ -227,8 +252,15 @@ defmodule Cli.Parse do
     end
   end
 
-  @spec from_local_time_zone(String.t(), String.t(), atom) ::
-          {:ok, NaiveDateTime.t()} | {:error, String.t()}
+  @doc """
+  Converts the supplied date and time strings to UTC, if needed.
+
+  > For local-to-utc conversions, daylight savings time (DST) can result in two or no timestamps being generated.
+  > If the supplied date/time cannot be represented due to DST, an error is returned.
+  > If the supplied date/time results in two timestamps, only the non-DST timestamp is returned.
+  > In either case, a warning will be emitted.
+  """
+
   def from_local_time_zone(date, time, time_type) do
     case NaiveDateTime.from_iso8601("#{date}T#{time}") do
       {:ok, time} ->
@@ -268,21 +300,36 @@ defmodule Cli.Parse do
     end
   end
 
-  @spec parse_as_options([{atom, atom}], [String.t()]) :: [{atom, String.t()}]
+  @doc """
+  Parses the supplied arguments as `--key` `value` options, based on the expected arguments list.
+
+  For example: `["--some-key", "some-value"]` will be parsed to `[:some_key, "some-value"]` if `:some_key` is expected.
+  """
+
   def parse_as_options(expected_args, actual_args) do
     {parsed, _, _} = OptionParser.parse(actual_args, strict: expected_args)
     parsed
   end
 
-  @spec parse_as_positional([{atom, atom}], [String.t()]) :: [{atom, String.t()}]
-  def parse_as_positional(expected_args, acual_args) do
+  @doc """
+  Parses the supplied arguments as positional options, based on the expected arguments list.
+
+  For example: `["some-value"]` will be parsed to `[:some_key, "some-value"]` if `:some_key` is expected.
+  """
+
+  def parse_as_positional(expected_args, actual_args) do
     Enum.zip(
       Enum.map(expected_args, fn {arg, _} -> arg end),
-      acual_args
+      actual_args
     )
   end
 
-  @spec parse_as_kv([{atom, atom}], [String.t()]) :: [{atom, String.t()}]
+  @doc """
+  Parses the supplied arguments as `key=value` options, based on the expected arguments list.
+
+  For example: `["some-key=some-value"]` will be parsed to `[:some_key, "some-value"]` if `:some_key` is expected.
+  """
+
   def parse_as_kv(expected_args, actual_args) do
     parse_as_options(
       expected_args,
@@ -293,7 +340,10 @@ defmodule Cli.Parse do
     )
   end
 
-  @spec parse_task(String.t()) :: {:ok, String.t()} | {:error, String.t()}
+  @doc """
+  Validates the supplied task name.
+  """
+
   def parse_task(raw_task) do
     cond do
       raw_task && String.length(raw_task) > 0 -> {:ok, raw_task}
@@ -301,7 +351,16 @@ defmodule Cli.Parse do
     end
   end
 
-  @spec parse_date(String.t()) :: {:ok, Date.t()} | {:error, String.t()}
+  @doc """
+  Parses the supplied date string into a `Date` object.
+
+  The supported formats are:
+  - `today`       - gets the current day
+  - `today+XXd`   - gets the current day and adds XX days (for example, today+3d)
+  - `today-XXd`   - gets the current day and subtracts XX days (for example, today-3d)
+  - `YYYY-MM-DD`  - sets the date explicitly (for example, 2015-12-21)
+  """
+
   def parse_date(raw_date) do
     case Regex.run(~r/^(today)([-+])(\d+)([d])$|^today$/, raw_date) do
       ["today"] ->
@@ -324,8 +383,19 @@ defmodule Cli.Parse do
     end
   end
 
-  @spec parse_time(String.t()) ::
-          {:ok, :utc, Time.t()} | {:ok, :local, Time.t()} | {:error, String.t()}
+  @doc """
+  Parses the supplied time string into a `Time` object.
+
+  The supported formats are:
+  - `now`       - gets current time
+  - `now+XXm`   - gets the current time and adds XX minutes (for example, now+45m)
+  - `now-XXm`   - gets the current time and subtracts XX minutes (for example, now-45m)
+  - `now+XXh`   - gets the current time and adds XX hours (for example, now+1h)
+  - `now-XXh`   - gets the current time and subtracts XX hours (for example, now-1h)
+  - `HH:mm`     - sets the time explicitly (for example, 23:45)
+  - `HH:mm:ss`  - sets the time explicitly (with seconds; for example, 23:45:59)
+  """
+
   def parse_time(raw_time) do
     case Regex.run(~r/^(now)([-+])(\d+)([mh])$|^now$/, raw_time) do
       ["now"] ->
@@ -362,7 +432,14 @@ defmodule Cli.Parse do
     end
   end
 
-  @spec parse_duration(String.t()) :: {:ok, integer} | {:error, String.t()}
+  @doc """
+  Parses the supplied duration string into minutes.
+
+  The supported formats are:
+  - `XXm` - XX minutes (for example, 95m == 95 minuets)
+  - `XXh` - XX hours (for example, 11h == 660 minutes)
+  """
+
   def parse_duration(raw_duration) do
     case Regex.run(~r/^(\d+)([mh])$/, raw_duration) do
       [_, minutes, "m"] ->

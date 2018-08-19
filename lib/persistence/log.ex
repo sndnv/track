@@ -1,5 +1,14 @@
 defmodule Persistence.Log do
-  @moduledoc false
+  @moduledoc """
+  File-based task store.
+
+  Supported commands:
+  - `clear` - removes all tasks
+
+  Expected options:
+  - `:store_options`
+    - `:log_file_path` - store file path
+  """
 
   use GenServer
   require Logger

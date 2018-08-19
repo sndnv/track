@@ -1,5 +1,12 @@
 defmodule Api.Service do
-  @moduledoc false
+  @moduledoc """
+  Service that handles all data access and changes.
+
+  Expected options:
+  - `:api_options`
+    - `:store` - task store type
+    - `:store_options` - settings to use when initializing the store
+  """
 
   use Supervisor
   require Logger
@@ -23,15 +30,29 @@ defmodule Api.Service do
     Supervisor.init(children, strategy: :one_for_one)
   end
 
+  @doc """
+  Adds the supplied task to the data store.
+  """
+
   def add_task(task) do
     {:ok, store} = Api.Config.get(Config, :store)
     Persistence.Store.add(store, Store, task)
   end
 
+  @doc """
+  Removes the task with the specified ID.
+  """
+
   def remove_task(id) do
     {:ok, store} = Api.Config.get(Config, :store)
     Persistence.Store.remove(store, Store, id)
   end
+
+  @doc """
+  Applies the supplied update to the task with the specified ID.
+
+  The existing task is removed and re-added with the updates applied.
+  """
 
   def update_task(id, update) do
     {:ok, store} = Api.Config.get(Config, :store)
@@ -68,6 +89,13 @@ defmodule Api.Service do
     end
   end
 
+  @doc """
+  Starts a new active task with the specified task name.
+
+  Only one active task is allowed; to stop an existing active task,
+  a call to `Api.Service.stop_task/0` is required.
+  """
+
   def start_task(task) do
     {:ok, store} = Api.Config.get(Config, :store)
 
@@ -93,6 +121,12 @@ defmodule Api.Service do
       end
     end
   end
+
+  @doc """
+  Stops an existing active task and records the final duration.
+
+  If the task's calculated duration is under one minute, the task is discarded.
+  """
 
   def stop_task() do
     {:ok, store} = Api.Config.get(Config, :store)
@@ -128,6 +162,10 @@ defmodule Api.Service do
     end
   end
 
+  @doc """
+  Retrieves a list of all tasks and applies the supplied query to the result.
+  """
+
   def list_tasks(query) do
     {:ok, store} = Api.Config.get(Config, :store)
 
@@ -142,6 +180,10 @@ defmodule Api.Service do
     end
   end
 
+  @doc """
+  Retrieves a list of all tasks that overlap, grouped by day.
+  """
+
   def list_overlapping_tasks() do
     {:ok, store} = Api.Config.get(Config, :store)
 
@@ -154,6 +196,10 @@ defmodule Api.Service do
       }
     end
   end
+
+  @doc """
+  Retrieves all tasks that match the supplied query, grouped by task with their total duration.
+  """
 
   def get_duration_aggregation(query) do
     {:ok, store} = Api.Config.get(Config, :store)
@@ -169,6 +215,12 @@ defmodule Api.Service do
     end
   end
 
+  @doc """
+  Retrieves all tasks that match the supplied query, grouped by the specified period.
+
+  The supported periods are: `:day`, `:week`, `:month`.
+  """
+
   def get_period_aggregation(query, period) do
     {:ok, store} = Api.Config.get(Config, :store)
 
@@ -182,6 +234,12 @@ defmodule Api.Service do
       }
     end
   end
+
+  @doc """
+  Retrieves all tasks that match the supplied query and regular expression, grouped by the specified period.
+
+  The supported periods are: `:day`, `:week`, `:month`.
+  """
 
   def get_task_aggregation(query, task_regex, group_period) do
     {:ok, store} = Api.Config.get(Config, :store)
@@ -197,6 +255,10 @@ defmodule Api.Service do
     end
   end
 
+  @doc """
+  Forwards the supplied command parameters to the specified service.
+  """
+
   def process_command(service, parameters) do
     case service do
       "store" ->
@@ -207,6 +269,10 @@ defmodule Api.Service do
         {:error, "Service [#{service}] not found"}
     end
   end
+
+  @doc """
+  Extracts all tasks from the supplied stream and logs all errors.
+  """
 
   def flatten(stream) do
     stream
@@ -221,6 +287,10 @@ defmodule Api.Service do
       end
     end)
   end
+
+  @doc """
+  Filters the supplied stream based on the query' from/to timestamps.
+  """
 
   def with_query_filter(stream, query) do
     from_unix = query.from |> DateTime.from_naive!("Etc/UTC") |> DateTime.to_unix()

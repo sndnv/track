@@ -207,13 +207,15 @@ defmodule Cli.RenderTest do
   end
 
   test "generates the period-colour legend" do
-    expected_legend = [
-      " \e[32m▇\e[0m -> Today's tasks",
-      " \e[33m▇\e[0m -> This week's tasks",
-      " \e[31m▇\e[0m -> This month's tasks",
-      " \e[34m▇\e[0m -> Future tasks",
-      " ▇ -> Older tasks"
-    ]
+    expected_legend =
+      [
+        " \e[32m▇\e[0m -> Today's tasks",
+        " \e[33m▇\e[0m -> This week's tasks",
+        " \e[31m▇\e[0m -> This month's tasks",
+        " \e[34m▇\e[0m -> Future tasks",
+        " ▇ -> Older tasks"
+      ]
+      |> Enum.join("\n")
 
     assert Cli.Render.period_colour_legend() == expected_legend
   end
