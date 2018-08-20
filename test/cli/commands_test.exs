@@ -121,4 +121,18 @@ defmodule Cli.CommandsTest do
     {:output, result} = Cli.Commands.legend()
     assert String.split(result, "\n") |> Enum.count() > 0
   end
+
+  test "generates the help message" do
+    args = ["stop"]
+    {:output, result} = Cli.Commands.help(args)
+    assert String.split(result, "\n") |> Enum.count() > 0
+
+    args = []
+    {:output, result} = Cli.Commands.help(args)
+    assert String.split(result, "\n") |> Enum.count() > 0
+
+    args = ["invalid"]
+    {:error, error} = Cli.Commands.help(args)
+    assert error == "No help found for command [invalid]"
+  end
 end

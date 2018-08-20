@@ -173,4 +173,21 @@ defmodule Cli.Commands do
   def legend() do
     {:output, Cli.Render.period_colour_legend()}
   end
+
+  @doc """
+  Generates the application's help message.
+  """
+
+  def help(args) do
+    result =
+      case args do
+        [command | _] -> Cli.Help.generate_help_message(command)
+        [] -> Cli.Help.generate_help_message(:all)
+      end
+
+    case result do
+      {:ok, help_message} -> {:output, help_message}
+      error -> error
+    end
+  end
 end
