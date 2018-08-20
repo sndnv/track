@@ -138,6 +138,8 @@ defmodule Cli.HelpTest do
   test "converts attributes to a help message" do
     test_app = "test_help"
 
+    test_brief = "test_brief"
+
     test_description = ["test", "help", "sample description"]
 
     test_commands = %{
@@ -198,6 +200,8 @@ defmodule Cli.HelpTest do
     }
 
     expected_string = [
+      [[[[] | "\e[1m"], "Name"] | "\e[0m"],
+      "\ttest_brief",
       [[[[] | "\e[1m"], "Description"] | "\e[0m"],
       "\ttest\n\thelp\n\tsample description",
       [[[[] | "\e[1m"], "Parameters"] | "\e[0m"],
@@ -213,6 +217,7 @@ defmodule Cli.HelpTest do
     {:ok, actual_string} =
       Cli.Help.generate_help_message_from_attributes(
         test_app,
+        test_brief,
         test_description,
         test_commands,
         test_examples,
@@ -222,6 +227,8 @@ defmodule Cli.HelpTest do
     assert actual_string == expected_string
 
     expected_string = [
+      [[[[] | "\e[1m"], "Name"] | "\e[0m"],
+      "\ttest_brief",
       [[[[] | "\e[1m"], "Description"] | "\e[0m"],
       "\ttest\n\thelp\n\tsample description",
       [[[[] | "\e[1m"], "Parameters"] | "\e[0m"],
@@ -233,6 +240,7 @@ defmodule Cli.HelpTest do
     {:ok, actual_string} =
       Cli.Help.generate_help_message_from_attributes(
         test_app,
+        test_brief,
         test_description,
         test_commands,
         test_examples,
@@ -245,6 +253,7 @@ defmodule Cli.HelpTest do
     {:error, error_message} =
       Cli.Help.generate_help_message_from_attributes(
         test_app,
+        test_brief,
         test_description,
         test_commands,
         test_examples,

@@ -5,6 +5,8 @@ defmodule Cli.Help do
 
   @app "track"
 
+  @brief "#{IO.ANSI.format([:bright, @app], true)} - Simple time/task tracking terminal utility"
+
   @description [
     "#{IO.ANSI.format([:bright, @app], true)} is a basic time/task tracking terminal-based application.",
     "It provides functionality for managing tasks and reporting on their duration and distribution."
@@ -228,6 +230,7 @@ defmodule Cli.Help do
     result =
       generate_help_message_from_attributes(
         @app,
+        @brief,
         @description,
         @supported_commands,
         @examples,
@@ -260,6 +263,7 @@ defmodule Cli.Help do
 
   def generate_help_message_from_attributes(
         app,
+        brief,
         description,
         supported_commands,
         examples,
@@ -278,6 +282,8 @@ defmodule Cli.Help do
           examples = examples |> Enum.filter(fn {k, _} -> k |> Atom.to_string() == command end)
           {supported_commands, examples}
       end
+
+    brief = "\t#{brief}"
 
     description =
       description
@@ -340,7 +346,11 @@ defmodule Cli.Help do
 
     case commands do
       [_ | _] ->
-        {:ok, ["Description" |> add_style(:bright), description] ++ commands ++ examples}
+        {
+          :ok,
+          ["Name" |> add_style(:bright), brief] ++
+            ["Description" |> add_style(:bright), description] ++ commands ++ examples
+        }
 
       [] ->
         {:error, "No help found for command [#{for_command}]"}
