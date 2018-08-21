@@ -3,11 +3,6 @@ defmodule Cli.HelpTest do
 
   use ExUnit.Case
 
-  test "adds padding to parameters" do
-    assert Cli.Help.pad_parameter("test") |> String.length() == 12
-    assert Cli.Help.pad_parameter("") |> String.length() == 12
-  end
-
   test "adds styles to strings" do
     assert Cli.Help.add_style("test", :bright) == [[[[] | "\e[1m"], "test"] | "\e[0m"]
     assert Cli.Help.add_style("test", :italic) == [[[[] | "\e[3m"], "test"] | "\e[0m"]
@@ -40,9 +35,9 @@ defmodule Cli.HelpTest do
     expected_detailed_string = [
       "|",
       "| Options (required):",
-      "|\t--task         - Task name (e.g. \e[3m\"Working on project\"\e[0m, \e[3m\"dev\"\e[0m, \e[3m\"bookkeeping\"\e[0m)",
-      "|\t--duration     - Task duration (e.g. \e[3m\"45m\"\e[0m, \e[3m\"5h\"\e[0m)",
-      "|\t--test         - Some alternative"
+      "|   --task         - Task name (e.g. \e[3m\"Working on project\"\e[0m, \e[3m\"dev\"\e[0m, \e[3m\"bookkeeping\"\e[0m)",
+      "|   --duration     - Task duration (e.g. \e[3m\"45m\"\e[0m, \e[3m\"5h\"\e[0m)",
+      "|   --test         - Some alternative"
     ]
 
     {actual_simple_string, actual_detailed_string} =
@@ -56,9 +51,9 @@ defmodule Cli.HelpTest do
     expected_detailed_string = [
       "|",
       "| Options (optional):",
-      "|\t--task         - Task name (e.g. \e[3m\"Working on project\"\e[0m, \e[3m\"dev\"\e[0m, \e[3m\"bookkeeping\"\e[0m)",
-      "|\t--duration     - Task duration (e.g. \e[3m\"45m\"\e[0m, \e[3m\"5h\"\e[0m)",
-      "|\t--test         - Some alternative"
+      "|   --task         - Task name (e.g. \e[3m\"Working on project\"\e[0m, \e[3m\"dev\"\e[0m, \e[3m\"bookkeeping\"\e[0m)",
+      "|   --duration     - Task duration (e.g. \e[3m\"45m\"\e[0m, \e[3m\"5h\"\e[0m)",
+      "|   --test         - Some alternative"
     ]
 
     {actual_simple_string, actual_detailed_string} =
@@ -89,8 +84,8 @@ defmodule Cli.HelpTest do
     expected_detailed_string = [
       "|",
       "| Arguments:",
-      "|\t<task>       - Task name (e.g. \e[3m\"Working on project\"\e[0m, \e[3m\"dev\"\e[0m, \e[3m\"bookkeeping\"\e[0m)",
-      "|\t<test>       - Test argument"
+      "|   <task>       - Task name (e.g. \e[3m\"Working on project\"\e[0m, \e[3m\"dev\"\e[0m, \e[3m\"bookkeeping\"\e[0m)",
+      "|   <test>       - Test argument"
     ]
 
     {actual_simple_string, actual_detailed_string} =
@@ -176,6 +171,20 @@ defmodule Cli.HelpTest do
       }
     }
 
+    test_additional_options = %{
+      "--verbose": %{
+        arguments: [],
+        description: ["Enables extra logging"]
+      },
+      "--config": %{
+        arguments: [{"file-path", "Path to custom config file", ["~/track/tasks.log"]}],
+        description: [
+          "Description Line #1",
+          "Description Line #2"
+        ]
+      }
+    }
+
     test_examples = %{
       start: %{
         description: "Starts a new active task called 'dev'",
@@ -205,13 +214,16 @@ defmodule Cli.HelpTest do
       [[[[] | "\e[1m"], "Description"] | "\e[0m"],
       "\ttest\n\thelp\n\tsample description",
       [[[[] | "\e[1m"], "Parameters"] | "\e[0m"],
-      "\t\e[1mlist\e[0m\t| \e[3mTest Description #1\e[0m\n|\n| Test Description #2\n|\n| $ test_help \e[1mlist\e[0m [<from>] [<to>] [<sort-by>] [<order>]\n|\n| Options (optional):\n|\t--from         - Query start date (e.g. \e[3m\"today\"\e[0m, \e[3m\"today+2d\"\e[0m, \e[3m\"today-1d\"\e[0m, \e[3m\"1999-12-21\"\e[0m)\n|\t--to           - Query end date (e.g. \e[3m\"today\"\e[0m, \e[3m\"today+2d\"\e[0m, \e[3m\"today-1d\"\e[0m, \e[3m\"1999-12-21\"\e[0m)\n|\t--sort-by      - Field name to sort by (e.g. \e[3m\"task\"\e[0m, \e[3m\"start\"\e[0m, \e[3m\"duration\"\e[0m)\n|\t--order        - Sorting order (e.g. \e[3m\"desc\"\e[0m, \e[3m\"asc\"\e[0m)",
-      "\t\e[1mstart\e[0m\t| \e[3mStarts a new active task\e[0m\n|\n| Only one active tasks is allowed\n|\n| $ test_help \e[1mstart\e[0m <task>\n|\n| Arguments:\n|\t<task>       - Task name (e.g. \e[3m\"Working on project\"\e[0m, \e[3m\"dev\"\e[0m, \e[3m\"bookkeeping\"\e[0m)",
-      "\t\e[1mstop\e[0m\t| \n|\n| $ test_help \e[1mstop\e[0m",
+      "\e[1m        list\e[0m | \e[3mTest Description #1\e[0m\n|\n| Test Description #2\n|\n| $ test_help \e[1mlist\e[0m [<from>] [<to>] [<sort-by>] [<order>]\n|\n| Options (optional):\n|   --from         - Query start date (e.g. \e[3m\"today\"\e[0m, \e[3m\"today+2d\"\e[0m, \e[3m\"today-1d\"\e[0m, \e[3m\"1999-12-21\"\e[0m)\n|   --to           - Query end date (e.g. \e[3m\"today\"\e[0m, \e[3m\"today+2d\"\e[0m, \e[3m\"today-1d\"\e[0m, \e[3m\"1999-12-21\"\e[0m)\n|   --sort-by      - Field name to sort by (e.g. \e[3m\"task\"\e[0m, \e[3m\"start\"\e[0m, \e[3m\"duration\"\e[0m)\n|   --order        - Sorting order (e.g. \e[3m\"desc\"\e[0m, \e[3m\"asc\"\e[0m)",
+      "\e[1m       start\e[0m | \e[3mStarts a new active task\e[0m\n|\n| Only one active tasks is allowed\n|\n| $ test_help \e[1mstart\e[0m <task>\n|\n| Arguments:\n|   <task>       - Task name (e.g. \e[3m\"Working on project\"\e[0m, \e[3m\"dev\"\e[0m, \e[3m\"bookkeeping\"\e[0m)",
+      "\e[1m        stop\e[0m | \n|\n| $ test_help \e[1mstop\e[0m",
+      [[[[] | "\e[1m"], "Additional Options"] | "\e[0m"],
+      "\e[1m    --config\e[0m | \e[3mDescription Line #1\e[0m\n|\n| Description Line #2\n|\n| $ test_help <command> [arguments] [parameters] \e[1m--config\e[0m file-path\n|\n| Arguments:\n|   file-path    - Path to custom config file (e.g. \e[3m\"~/track/tasks.log\"\e[0m)",
+      "\e[1m   --verbose\e[0m | \e[3mEnables extra logging\e[0m\n|\n| $ test_help <command> [arguments] [parameters] \e[1m--verbose\e[0m",
       [[[[] | "\e[1m"], "Examples"] | "\e[0m"],
-      "\t\e[3mTest Description #3\e[0m\n\t\t$ test_help \e[1mlist\e[0m today-30d today duration asc\n\t\t$ test_help \e[1mlist\e[0m --from today-30d --to today --sort-by duration --order asc\n\t\t$ test_help \e[1mlist\e[0m from=today-30d to=today sort-by=duration order=asc",
-      "\t\e[3mStarts a new active task called 'dev'\e[0m\n\t\t$ test_help \e[1mstart\e[0m dev",
-      "\t\e[3mStops the currently active task\e[0m\n\t\t$ test_help \e[1mstop\e[0m "
+      "\t\e[3mTest Description #3\e[0m\n\t     $ test_help \e[1mlist\e[0m today-30d today duration asc\n\t     $ test_help \e[1mlist\e[0m --from today-30d --to today --sort-by duration --order asc\n\t     $ test_help \e[1mlist\e[0m from=today-30d to=today sort-by=duration order=asc",
+      "\t\e[3mStarts a new active task called 'dev'\e[0m\n\t     $ test_help \e[1mstart\e[0m dev",
+      "\t\e[3mStops the currently active task\e[0m\n\t     $ test_help \e[1mstop\e[0m "
     ]
 
     {:ok, actual_string} =
@@ -220,6 +232,7 @@ defmodule Cli.HelpTest do
         test_brief,
         test_description,
         test_commands,
+        test_additional_options,
         test_examples,
         "|"
       )
@@ -232,9 +245,12 @@ defmodule Cli.HelpTest do
       [[[[] | "\e[1m"], "Description"] | "\e[0m"],
       "\ttest\n\thelp\n\tsample description",
       [[[[] | "\e[1m"], "Parameters"] | "\e[0m"],
-      "\t\e[1mstop\e[0m\t| \n|\n| $ test_help \e[1mstop\e[0m",
+      "\e[1m        stop\e[0m | \n|\n| $ test_help \e[1mstop\e[0m",
+      [[[[] | "\e[1m"], "Additional Options"] | "\e[0m"],
+      "\e[1m    --config\e[0m | \e[3mDescription Line #1\e[0m\n|\n| Description Line #2\n|\n| $ test_help <command> [arguments] [parameters] \e[1m--config\e[0m file-path\n|\n| Arguments:\n|   file-path    - Path to custom config file (e.g. \e[3m\"~/track/tasks.log\"\e[0m)",
+      "\e[1m   --verbose\e[0m | \e[3mEnables extra logging\e[0m\n|\n| $ test_help <command> [arguments] [parameters] \e[1m--verbose\e[0m",
       [[[[] | "\e[1m"], "Examples"] | "\e[0m"],
-      "\t\e[3mStops the currently active task\e[0m\n\t\t$ test_help \e[1mstop\e[0m "
+      "\t\e[3mStops the currently active task\e[0m\n\t     $ test_help \e[1mstop\e[0m "
     ]
 
     {:ok, actual_string} =
@@ -243,6 +259,7 @@ defmodule Cli.HelpTest do
         test_brief,
         test_description,
         test_commands,
+        test_additional_options,
         test_examples,
         "|",
         "stop"
@@ -256,6 +273,7 @@ defmodule Cli.HelpTest do
         test_brief,
         test_description,
         test_commands,
+        test_additional_options,
         test_examples,
         "|",
         "invalid"

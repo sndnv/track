@@ -142,6 +142,20 @@ defmodule Cli.Help do
     }
   }
 
+  @additional_options %{
+    "--verbose": %{
+      arguments: [],
+      description: ["Enables extra logging"]
+    },
+    "--config": %{
+      arguments: [{"file-path", "Path to custom config file", ["~/track/tasks.log"]}],
+      description: [
+        "Sets a custom config file",
+        "The file should contain parameters in 'config_key=value' format; the only config key currently supported is 'log_file_path'"
+      ]
+    }
+  }
+
   @examples %{
     add: %{
       description: "Adds a new task called 'dev', starting now with a duration of 30 minutes",
@@ -212,7 +226,8 @@ defmodule Cli.Help do
     }
   }
 
-  @prefix "\t\t|"
+  @default_padding 12
+  @prefix "#{String.pad_leading("", @default_padding)} |"
 
   @doc """
   Generates the application's usage message.
@@ -233,6 +248,7 @@ defmodule Cli.Help do
         @brief,
         @description,
         @supported_commands,
+        @additional_options,
         @examples,
         @prefix,
         for_command
@@ -266,6 +282,7 @@ defmodule Cli.Help do
         brief,
         description,
         supported_commands,
+        additional_options,
         examples,
         prefix,
         for_command \\ :all
@@ -308,12 +325,36 @@ defmodule Cli.Help do
         command_description = description_to_string(data[:description], prefix)
 
         command_overview = [
-          "\t#{command |> add_style(:bright)}\t| #{command_description}",
+          "#{command |> String.pad_leading(@default_padding) |> add_style(:bright)} | #{
+            command_description
+          }",
           prefix,
           "#{prefix} $ #{app} #{command |> add_style(:bright)}#{command_parameters}"
         ]
 
         (command_overview ++ detailed_args ++ detailed_required_opts ++ detailed_optional_opts)
+        |> Enum.join("\n")
+      end)
+
+    additional_options =
+      additional_options
+      |> Enum.map(fn {option, data} ->
+        option = option |> Atom.to_string()
+        {simple_args, detailed_args} = arguments_to_string(data[:arguments], prefix)
+
+        option_description = description_to_string(data[:description], prefix)
+
+        option_overview = [
+          "#{option |> String.pad_leading(@default_padding) |> add_style(:bright)} | #{
+            option_description
+          }",
+          prefix,
+          "#{prefix} $ #{app} <command> [arguments] [parameters] #{option |> add_style(:bright)}#{
+            simple_args
+          }"
+        ]
+
+        (option_overview ++ detailed_args)
         |> Enum.join("\n")
       end)
 
@@ -325,7 +366,7 @@ defmodule Cli.Help do
         alternatives =
           example_data[:examples]
           |> Enum.map(fn alternative ->
-            "\t\t$ #{app} #{command |> add_style(:bright)} #{alternative}"
+            "\t     $ #{app} #{command |> add_style(:bright)} #{alternative}"
           end)
           |> Enum.join("\n")
 
@@ -335,6 +376,12 @@ defmodule Cli.Help do
     commands =
       case commands do
         [_ | _] -> ["Parameters" |> add_style(:bright) | commands]
+        [] -> []
+      end
+
+    additional_options =
+      case additional_options do
+        [_ | _] -> ["Additional Options" |> add_style(:bright) | additional_options]
         [] -> []
       end
 
@@ -349,7 +396,8 @@ defmodule Cli.Help do
         {
           :ok,
           ["Name" |> add_style(:bright), brief] ++
-            ["Description" |> add_style(:bright), description] ++ commands ++ examples
+            ["Description" |> add_style(:bright), description] ++
+            commands ++ additional_options ++ examples
         }
 
       [] ->
@@ -398,7 +446,9 @@ defmodule Cli.Help do
     detailed_args =
       arguments
       |> Enum.map(fn {name, arg_description, examples} ->
-        "#{prefix}\t#{name |> pad_parameter} - #{arg_description}#{examples |> examples_to_string}"
+        "#{prefix}   #{name |> String.pad_trailing(@default_padding)} - #{arg_description}#{
+          examples |> examples_to_string
+        }"
       end)
 
     detailed_args =
@@ -434,7 +484,7 @@ defmodule Cli.Help do
       |> Enum.flat_map(fn alternatives ->
         alternatives
         |> Enum.map(fn {name, alt_description, examples} ->
-          "#{prefix}\t--#{name |> pad_parameter} - #{alt_description}#{
+          "#{prefix}   --#{name |> String.pad_trailing(@default_padding)} - #{alt_description}#{
             examples |> examples_to_string
           }"
         end)
@@ -474,15 +524,5 @@ defmodule Cli.Help do
 
   def add_style(string, style) do
     IO.ANSI.format([style, string], true)
-  end
-
-  @default_padding 12
-
-  @doc """
-  Adds trailing padding to the supplied parameter.
-  """
-
-  def pad_parameter(parameter) do
-    String.pad_trailing(parameter, @default_padding, " ")
   end
 end

@@ -26,10 +26,30 @@ defmodule Persistence.Log do
   end
 
   def init(options) do
+    log_file = options[:log_file_path]
+
+    if !File.exists?(log_file) do
+      case log_file |> Path.dirname() |> File.mkdir_p() do
+        :ok ->
+          case File.touch(log_file) do
+            :ok ->
+              nil
+
+            {:error, error} ->
+              Logger.error("[log] [init] Failed to create log file [#{log_file}]: [#{error}]")
+          end
+
+        {:error, error} ->
+          Logger.error(
+            "[log] [init] Failed to create directory for log file [#{log_file}]: [#{error}]"
+          )
+      end
+    end
+
     {
       :ok,
       [
-        File.stream!(options[:log_file_path], [:append, :utf8]),
+        File.stream!(log_file, [:append, :utf8]),
         options
       ]
     }
