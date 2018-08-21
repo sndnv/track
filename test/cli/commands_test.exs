@@ -135,4 +135,52 @@ defmodule Cli.CommandsTest do
     {:error, error} = Cli.Commands.help(args)
     assert error == "No help found for command [invalid]"
   end
+
+  test "calls the correct application commands" do
+    expected_command = "add"
+    {actual_command, _} = Cli.Commands.args_to_command([expected_command])
+    assert actual_command == expected_command
+
+    expected_command = "remove"
+    {actual_command, _} = Cli.Commands.args_to_command([expected_command])
+    assert actual_command == expected_command
+
+    expected_command = "update"
+    {actual_command, _} = Cli.Commands.args_to_command([expected_command])
+    assert actual_command == expected_command
+
+    expected_command = "start"
+    {actual_command, _} = Cli.Commands.args_to_command([expected_command])
+    assert actual_command == expected_command
+
+    expected_command = "stop"
+    {actual_command, _} = Cli.Commands.args_to_command([expected_command])
+    assert actual_command == expected_command
+
+    expected_command = "list"
+    {actual_command, _} = Cli.Commands.args_to_command([expected_command])
+    assert actual_command == expected_command
+
+    expected_command = "report"
+    {actual_command, _} = Cli.Commands.args_to_command([expected_command])
+    assert actual_command == expected_command
+
+    expected_command = "service"
+    {actual_command, _} = Cli.Commands.args_to_command([expected_command])
+    assert actual_command == expected_command
+
+    expected_command = "legend"
+    {actual_command, _} = Cli.Commands.args_to_command([expected_command])
+    assert actual_command == expected_command
+
+    expected_command = "help"
+    {actual_command, _} = Cli.Commands.args_to_command([expected_command])
+    assert actual_command == expected_command
+
+    {:error, error} = Cli.Commands.args_to_command(["invalid"])
+    assert error == "Failed to process unexpected action [invalid]"
+
+    {:error, error} = Cli.Commands.args_to_command([])
+    assert error == "No parameters specified"
+  end
 end

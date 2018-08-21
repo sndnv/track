@@ -6,6 +6,50 @@ defmodule Cli.Commands do
   """
 
   @doc """
+  Calls the appropriate command based on the supplied arguments.
+  """
+
+  def args_to_command(args) do
+    case args do
+      ["add" | args] ->
+        {"add", add_task(args)}
+
+      ["remove" | args] ->
+        {"remove", remove_task(args)}
+
+      ["update" | args] ->
+        {"update", update_task(args)}
+
+      ["start" | args] ->
+        {"start", start_task(args)}
+
+      ["stop" | _] ->
+        {"stop", stop_task()}
+
+      ["list" | args] ->
+        {"list", list(args)}
+
+      ["report" | args] ->
+        {"report", report(args)}
+
+      ["service" | args] ->
+        {"service", service(args)}
+
+      ["legend" | _] ->
+        {"legend", legend()}
+
+      ["help" | args] ->
+        {"help", help(args)}
+
+      [action | _] ->
+        {:error, "Failed to process unexpected action [#{action}]"}
+
+      [] ->
+        {:error, "No parameters specified"}
+    end
+  end
+
+  @doc """
   Adds a new task.
   """
 
