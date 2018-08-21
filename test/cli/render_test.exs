@@ -191,7 +191,7 @@ defmodule Cli.RenderTest do
       {"test-label-#3", 15, "15 ", [{15, :green}]}
     ]
 
-    expected_chart = [
+    expected_chart_opt_1 = [
       "TestLabel     | TestValue",
       "------------- + ---------",
       "test-label-#1 | __120 ▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇\e[33m▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇\e[0m\e[31m▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇\e[0m",
@@ -201,9 +201,19 @@ defmodule Cli.RenderTest do
       "Test Footer"
     ]
 
+    expected_chart_opt_2 = [
+      "TestLabel     | TestValue",
+      "------------- + ---------",
+      "test-label-#1 | __120 ▇▇▇▇▇▇▇▇▇▇▇▇▇\e[33m▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇\e[0m\e[31m▇▇▇▇▇▇▇▇▇\e[0m",
+      "test-label-#2 |  --50 ▇▇▇▇▇▇▇▇\e[36m▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇\e[0m",
+      "test-label-#3 |    15 \e[32m▇▇▇▇▇▇▇\e[0m",
+      "------------- + ---------",
+      "Test Footer"
+    ]
+
     actual_chart = Cli.Render.bar_chart(header, rows, footer) |> String.split("\n")
 
-    assert actual_chart == expected_chart
+    assert actual_chart == expected_chart_opt_1 || actual_chart == expected_chart_opt_2
   end
 
   test "generates the period-colour legend" do
