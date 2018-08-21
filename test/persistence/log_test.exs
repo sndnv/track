@@ -53,5 +53,6 @@ defmodule Persistence.LogTest do
   test "process commands" do
     assert Persistence.StoreBehaviour.processes_commands(Persistence.Log, Store) == :ok
     assert File.rm!(@log_file_path) == :ok
+    assert File.rm!("#{@log_file_path}.previous") == :ok
   end
 end

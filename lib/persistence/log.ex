@@ -168,7 +168,7 @@ defmodule Persistence.Log do
         result =
           case parameters do
             ["clear" | _] ->
-              case File.rm(options[:log_file_path]) do
+              case File.rename(options[:log_file_path], "#{options[:log_file_path]}.previous") do
                 :ok ->
                   case File.touch(options[:log_file_path]) do
                     :ok ->
