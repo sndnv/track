@@ -41,6 +41,9 @@ defmodule Cli.Commands do
       ["help" | args] ->
         {"help", help(args)}
 
+      ["generate" | _] ->
+        {"generate", generate_bash_completion()}
+
       [action | _] ->
         {:error, "Failed to process unexpected action [#{action}]"}
 
@@ -232,6 +235,40 @@ defmodule Cli.Commands do
     case result do
       {:ok, help_message} -> {:output, help_message}
       error -> error
+    end
+  end
+
+  @doc """
+  Generates a bash_completion script file
+  """
+
+  def generate_bash_completion() do
+    file_name = "track.bash_completion"
+    file_path = Path.relative_to_cwd(file_name)
+    file_content = Cli.Help.generate_bash_completion_script()
+
+    result = File.write(file_path, file_content, [:write, :utf8])
+
+    case result do
+      :ok ->
+        {
+          :output,
+          [
+            ">: File [#{file_path}] created...",
+            ">:",
+            ">: Install on Linux:",
+            "     mv #{file_path} /etc/bash_completion.d/track",
+            "     source /etc/bash_completion.d/track",
+            ">:",
+            ">: Install on Mac:",
+            "     mv #{file_path} /usr/local/etc/bash_completion.d/track",
+            "     source /usr/local/etc/bash_completion.d/track"
+          ]
+          |> Enum.join("\n")
+        }
+
+      error ->
+        error
     end
   end
 end

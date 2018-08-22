@@ -177,6 +177,11 @@ defmodule Cli.CommandsTest do
     {actual_command, _} = Cli.Commands.args_to_command([expected_command])
     assert actual_command == expected_command
 
+    expected_command = "generate"
+    {actual_command, _} = Cli.Commands.args_to_command([expected_command])
+    assert actual_command == expected_command
+    assert File.rm("track.bash_completion") == :ok
+
     {:error, error} = Cli.Commands.args_to_command(["invalid"])
     assert error == "Failed to process unexpected action [invalid]"
 
