@@ -19,7 +19,7 @@ defmodule TrackTest do
     assert File.write(config_file, "invalid-param") == :ok
     assert Track.run(["list", "--config", config_file]) |> String.split("\n") |> Enum.count() >= 1
 
-    target_log_file = "run/#{UUID.uuid4()}_test.log"
+    target_log_file = "$PWD/run/#{UUID.uuid4()}_test.log"
     assert File.write(config_file, "log_file_path=#{target_log_file}") == :ok
     assert Track.run(["list", "--config", config_file]) |> String.split("\n") |> Enum.count() >= 1
 

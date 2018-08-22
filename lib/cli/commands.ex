@@ -257,11 +257,11 @@ defmodule Cli.Commands do
             ">: File [#{file_path}] created...",
             ">:",
             ">: Install on Linux:",
-            "     mv #{file_path} /etc/bash_completion.d/track",
+            "     sudo mv #{file_path} /etc/bash_completion.d/track",
             "     source /etc/bash_completion.d/track",
             ">:",
             ">: Install on Mac:",
-            "     mv #{file_path} /usr/local/etc/bash_completion.d/track",
+            "     sudo mv #{file_path} /usr/local/etc/bash_completion.d/track",
             "     source /usr/local/etc/bash_completion.d/track"
           ]
           |> Enum.join("\n")

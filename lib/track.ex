@@ -25,6 +25,37 @@ defmodule Track do
       Logger.configure(level: :warn)
     end
 
+    api_options = get_api_options(options)
+
+    children = [
+      {
+        Api.Service,
+        api_options: api_options
+      }
+    ]
+
+    Supervisor.start_link(children, strategy: :one_for_one, name: Track.Supervisor)
+
+    case Cli.Commands.args_to_command(args) do
+      {:error, error} ->
+        [
+          ">: #{error}",
+          Cli.Help.generate_usage_message()
+        ]
+        |> Enum.join("\n")
+
+      {_action, :ok} ->
+        :ok
+
+      {_action, {:output, output}} ->
+        output
+
+      {action, {:error, message}} ->
+        ">: Failed to process action [#{action}]: #{message}"
+    end
+  end
+
+  def get_api_options(options) do
     default_options = %{
       store: Persistence.Log,
       store_options: %{log_file_path: Application.get_env(:track, :config)[:log_file_path]}
@@ -67,31 +98,20 @@ defmodule Track do
           end
       end
 
-    children = [
-      {
-        Api.Service,
-        api_options: api_options
-      }
-    ]
+    current_log_file_path = get_in(api_options, [:store_options, :log_file_path])
 
-    Supervisor.start_link(children, strategy: :one_for_one, name: Track.Supervisor)
+    case Regex.run(~r/\${?(\w+)}?/, current_log_file_path) do
+      [match, env_var] ->
+        env_var = System.get_env(env_var)
 
-    case Cli.Commands.args_to_command(args) do
-      {:error, error} ->
-        [
-          ">: #{error}",
-          Cli.Help.generate_usage_message()
-        ]
-        |> Enum.join("\n")
+        put_in(
+          api_options,
+          [:store_options, :log_file_path],
+          current_log_file_path |> String.replace(match, env_var)
+        )
 
-      {_action, :ok} ->
-        :ok
-
-      {_action, {:output, output}} ->
-        output
-
-      {action, {:error, message}} ->
-        ">: Failed to process action [#{action}]: #{message}"
+      _ ->
+        api_options
     end
   end
 end

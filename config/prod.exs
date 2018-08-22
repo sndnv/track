@@ -1,3 +1,3 @@
 use Mix.Config
 
-config :track, :config, log_file_path: "track/tasks.log"
+config :track, :config, log_file_path: "$HOME/track/tasks.log"

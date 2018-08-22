@@ -392,7 +392,7 @@ defmodule Cli.Help do
 
     commands =
       case commands do
-        [_ | _] -> ["Parameters" |> add_style(:bright) | commands]
+        [_ | _] -> ["Commands" |> add_style(:bright) | commands]
         [] -> []
       end
 
